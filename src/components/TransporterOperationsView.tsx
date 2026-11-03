@@ -13,7 +13,8 @@ import {
   RefreshCw,
   ArrowRight,
   ShieldAlert,
-  Info
+  Info,
+  X
 } from 'lucide-react';
 import { collection, onSnapshot, query, where, doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
@@ -608,14 +609,14 @@ export const TransporterOperationsView: React.FC = () => {
 
       {/* Modal de Confirmação de Aceite de Coleta (RF10) */}
       {acceptingRes && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-stone-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl border border-stone-200 animate-in fade-in zoom-in-95 duration-150 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-stone-100">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-stone-900/60 backdrop-blur-xs flex justify-center items-start sm:items-center p-2.5 sm:p-4 overscroll-contain">
+          <div className="bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-7 max-w-md w-full shadow-2xl border border-stone-200 animate-in fade-in zoom-in-95 duration-150 space-y-4 my-auto max-h-[calc(100dvh-1.25rem)] sm:max-h-[min(90vh,750px)] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-stone-100 shrink-0">
               <h3 className="text-base font-bold text-stone-900 font-serif flex items-center gap-2">
-                <Truck className="w-5 h-5 text-amber-600" />
-                Confirmar Aceite de Coleta
+                <Truck className="w-5 h-5 text-amber-600 shrink-0" />
+                <span>Confirmar Aceite de Coleta</span>
               </h3>
-              <button onClick={() => setAcceptingRes(null)} className="text-stone-400 hover:text-stone-600">
+              <button onClick={() => setAcceptingRes(null)} aria-label="Fechar" className="p-1 rounded-lg text-stone-400 hover:text-stone-600 hover:bg-stone-100 shrink-0">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -660,14 +661,14 @@ export const TransporterOperationsView: React.FC = () => {
 
       {/* Modal de Confirmação de Retirada dos Alimentos (RF11) */}
       {confirmPickupTarget && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-stone-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl border border-stone-200 animate-in fade-in zoom-in-95 duration-150 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-stone-100">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-stone-900/60 backdrop-blur-xs flex justify-center items-start sm:items-center p-2.5 sm:p-4 overscroll-contain">
+          <div className="bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-7 max-w-md w-full shadow-2xl border border-stone-200 animate-in fade-in zoom-in-95 duration-150 space-y-4 my-auto max-h-[calc(100dvh-1.25rem)] sm:max-h-[min(90vh,750px)] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-stone-100 shrink-0">
               <h3 className="text-base font-bold text-stone-900 font-serif flex items-center gap-2">
-                <CheckCircle2 className="w-5 h-5 text-amber-600" />
-                Registrar Retirada dos Alimentos (RF11)
+                <CheckCircle2 className="w-5 h-5 text-amber-600 shrink-0" />
+                <span>Registrar Retirada dos Alimentos (RF11)</span>
               </h3>
-              <button onClick={() => setConfirmPickupTarget(null)} className="text-stone-400 hover:text-stone-600">
+              <button onClick={() => setConfirmPickupTarget(null)} aria-label="Fechar" className="p-1 rounded-lg text-stone-400 hover:text-stone-600 hover:bg-stone-100 shrink-0">
                 <X className="w-5 h-5" />
               </button>
             </div>

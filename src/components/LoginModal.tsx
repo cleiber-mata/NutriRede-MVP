@@ -107,16 +107,16 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-stone-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="relative bg-white w-full max-w-md rounded-3xl shadow-2xl border border-stone-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-stone-900/60 backdrop-blur-xs flex justify-center items-start sm:items-center p-2.5 sm:p-4 overscroll-contain">
+      <div className="relative bg-white w-full max-w-md rounded-2xl sm:rounded-3xl shadow-2xl border border-stone-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200 my-auto max-h-[calc(100dvh-1.25rem)] sm:max-h-[min(90vh,760px)] flex flex-col">
         {/* Header */}
-        <div className="bg-gradient-to-r from-emerald-800 to-teal-900 p-6 text-white flex items-center justify-between">
+        <div className="bg-gradient-to-r from-emerald-800 to-teal-900 p-4 sm:p-6 text-white flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
               <LogIn className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-xl font-bold font-serif">Entrar no NutriRede</h3>
+              <h3 className="text-lg sm:text-xl font-bold font-serif leading-tight">Entrar no NutriRede</h3>
               <p className="text-xs text-emerald-200">
                 RF02 • Autenticação e Acesso Seguro
               </p>
@@ -124,14 +124,15 @@ export const LoginModal: React.FC<LoginModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-emerald-200 hover:text-white hover:bg-white/10 transition-colors"
+            aria-label="Fechar"
+            className="p-1.5 rounded-lg text-emerald-200 hover:text-white hover:bg-white/10 transition-colors shrink-0"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Content */}
-        <div className="p-6">
+        <div className="p-4 sm:p-6 overflow-y-auto overscroll-contain flex-1">
           <form onSubmit={handleSubmit} className="space-y-4">
             {errorMsg && (
               <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-2.5">

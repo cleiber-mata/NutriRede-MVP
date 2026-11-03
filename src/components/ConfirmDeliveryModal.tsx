@@ -68,15 +68,15 @@ export const ConfirmDeliveryModal: React.FC<ConfirmDeliveryModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-stone-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl border border-stone-200 animate-in fade-in zoom-in-95 duration-150">
-        <div className="flex items-center justify-between pb-4 border-b border-stone-100 mb-6">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-stone-900/60 backdrop-blur-xs flex justify-center items-start sm:items-center p-2.5 sm:p-4 overscroll-contain">
+      <div className="bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-7 max-w-lg w-full shadow-2xl border border-stone-200 animate-in fade-in zoom-in-95 duration-150 my-auto max-h-[calc(100dvh-1.25rem)] sm:max-h-[min(90vh,850px)] flex flex-col">
+        <div className="flex items-center justify-between pb-3 sm:pb-4 border-b border-stone-100 mb-4 sm:mb-5 shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-teal-50 text-teal-700 flex items-center justify-center border border-teal-200">
+            <div className="w-10 h-10 rounded-xl bg-teal-50 text-teal-700 flex items-center justify-center border border-teal-200 shrink-0">
               <CheckCircle2 className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-stone-900 font-serif">
+              <h3 className="text-base sm:text-lg font-bold text-stone-900 font-serif leading-tight">
                 Confirmar Recebimento da Doação (RF12)
               </h3>
               <p className="text-xs text-stone-500">
@@ -86,11 +86,14 @@ export const ConfirmDeliveryModal: React.FC<ConfirmDeliveryModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-stone-400 hover:text-stone-600 rounded-xl hover:bg-stone-100 transition-colors"
+            aria-label="Fechar"
+            className="p-1.5 text-stone-400 hover:text-stone-600 rounded-xl hover:bg-stone-100 transition-colors shrink-0"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
+
+        <div className="overflow-y-auto overscroll-contain flex-1 pr-0.5">
 
         {errorMsg && (
           <div className="mb-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-800 font-medium">
@@ -170,6 +173,7 @@ export const ConfirmDeliveryModal: React.FC<ConfirmDeliveryModalProps> = ({
             <CheckCircle2 className="w-4 h-4" />
             {loading ? 'Confirmando...' : 'Confirmar Recebimento da Doação'}
           </button>
+        </div>
         </div>
       </div>
     </div>

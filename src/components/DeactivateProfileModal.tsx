@@ -52,25 +52,28 @@ export const DeactivateProfileModal: React.FC<DeactivateProfileModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-stone-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl border border-stone-200 animate-in fade-in zoom-in-95 duration-150">
-        <div className="flex items-center justify-between pb-3 border-b border-stone-100 mb-4">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-stone-900/60 backdrop-blur-xs flex justify-center items-start sm:items-center p-2.5 sm:p-4 overscroll-contain">
+      <div className="bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-7 max-w-md w-full shadow-2xl border border-stone-200 animate-in fade-in zoom-in-95 duration-150 my-auto max-h-[calc(100dvh-1.25rem)] sm:max-h-[min(90vh,750px)] flex flex-col">
+        <div className="flex items-center justify-between pb-3 border-b border-stone-100 mb-4 shrink-0">
           <div className="flex items-center gap-2 text-stone-900">
-            <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center border border-amber-200">
+            <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center border border-amber-200 shrink-0">
               <PowerOff className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold font-serif">Desativar Perfil de Atuação</h3>
+              <h3 className="text-base font-bold font-serif leading-tight">Desativar Perfil de Atuação</h3>
               <p className="text-xs text-stone-500">Deixar de atuar temporariamente</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-100"
+            aria-label="Fechar"
+            className="p-1 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-100 shrink-0"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
+
+        <div className="overflow-y-auto overscroll-contain flex-1 pr-0.5">
 
         {errorMsg && (
           <div className="mb-4 p-3.5 rounded-xl bg-rose-50 text-rose-800 border border-rose-200 text-xs flex items-start gap-2">
@@ -130,6 +133,7 @@ export const DeactivateProfileModal: React.FC<DeactivateProfileModalProps> = ({
             <PowerOff className="w-3.5 h-3.5" />
             <span>{loading ? 'Processando...' : 'Confirmar Desativação'}</span>
           </button>
+        </div>
         </div>
       </div>
     </div>

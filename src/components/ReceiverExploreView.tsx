@@ -12,7 +12,8 @@ import {
   Thermometer,
   Sparkles,
   ArrowRight,
-  Filter
+  Filter,
+  X
 } from 'lucide-react';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '../firebase/config';
@@ -332,22 +333,25 @@ export const ReceiverExploreView: React.FC<ReceiverExploreViewProps> = ({
 
       {/* Modal de Confirmação da Reserva Exclusiva (RF06 / RN04) */}
       {reservingBatch && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-stone-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-6 max-w-lg w-full shadow-2xl border border-stone-200 animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between pb-3 border-b border-stone-100 mb-4">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-stone-900/60 backdrop-blur-xs flex justify-center items-start sm:items-center p-2.5 sm:p-4 overscroll-contain">
+          <div className="bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-6 max-w-lg w-full shadow-2xl border border-stone-200 animate-in fade-in zoom-in-95 duration-150 my-auto max-h-[calc(100dvh-1.25rem)] sm:max-h-[min(90vh,800px)] flex flex-col">
+            <div className="flex items-center justify-between pb-3 border-b border-stone-100 mb-4 shrink-0">
               <div className="flex items-center gap-2 text-teal-800">
-                <Package className="w-5 h-5" />
-                <h4 className="font-bold text-stone-900 text-base font-serif">
+                <Package className="w-5 h-5 shrink-0" />
+                <h4 className="font-bold text-stone-900 text-base font-serif leading-tight">
                   Confirmar Solicitação de Reserva
                 </h4>
               </div>
               <button
                 onClick={() => setReservingBatch(null)}
-                className="text-stone-400 hover:text-stone-600"
+                aria-label="Fechar"
+                className="p-1 rounded-lg text-stone-400 hover:text-stone-600 hover:bg-stone-100 shrink-0"
               >
-                ×
+                <X className="w-5 h-5" />
               </button>
             </div>
+
+            <div className="overflow-y-auto overscroll-contain flex-1 pr-0.5">
 
             {reserveError && (
               <div className="p-3 mb-3 bg-rose-50 text-rose-800 border border-rose-200 rounded-xl text-xs flex items-start gap-2">
@@ -420,7 +424,8 @@ export const ReceiverExploreView: React.FC<ReceiverExploreViewProps> = ({
             </div>
           </div>
         </div>
-      )}
-    </div>
-  );
+      </div>
+    )}
+  </div>
+);
 };

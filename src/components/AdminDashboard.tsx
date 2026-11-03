@@ -664,20 +664,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToHome }) 
 
       {/* Modal de Rejeição com Motivo */}
       {rejectModalProfile && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-stone-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-stone-200 animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between mb-4">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-stone-900/60 backdrop-blur-xs flex justify-center items-start sm:items-center p-2.5 sm:p-4 overscroll-contain">
+          <div className="bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-6 max-w-md w-full shadow-2xl border border-stone-200 animate-in fade-in zoom-in-95 duration-150 my-auto max-h-[calc(100dvh-1.25rem)] sm:max-h-[min(90vh,750px)] flex flex-col">
+            <div className="flex items-center justify-between pb-3 border-b border-stone-100 mb-4 shrink-0">
               <div className="flex items-center gap-2 text-rose-700">
-                <XCircle className="w-5 h-5" />
-                <h4 className="font-bold text-stone-900 text-base">Rejeitar Perfil</h4>
+                <XCircle className="w-5 h-5 shrink-0" />
+                <h4 className="font-bold text-stone-900 text-base font-serif leading-tight">Rejeitar Perfil</h4>
               </div>
               <button
                 onClick={() => setRejectModalProfile(null)}
-                className="text-stone-400 hover:text-stone-600"
+                aria-label="Fechar"
+                className="p-1 rounded-lg text-stone-400 hover:text-stone-600 hover:bg-stone-100 shrink-0"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
+
+            <div className="overflow-y-auto overscroll-contain flex-1 pr-0.5">
 
             <p className="text-xs text-stone-600 leading-relaxed mb-3">
               Você está rejeitando o perfil de <strong>{PROFILE_DEFINITIONS[rejectModalProfile.profileType].title}</strong> para a conta de <strong>{rejectModalProfile.userName}</strong> ({rejectModalProfile.userEmail}).
@@ -709,6 +712,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToHome }) 
               >
                 Confirmar Rejeição
               </button>
+            </div>
             </div>
           </div>
         </div>

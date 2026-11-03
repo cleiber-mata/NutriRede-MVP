@@ -203,10 +203,10 @@ export const AdminUserActivityModal: React.FC<AdminUserActivityModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-stone-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-4xl w-full shadow-2xl border border-stone-200 animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-stone-900/60 backdrop-blur-xs flex justify-center items-start sm:items-center p-2.5 sm:p-4 overscroll-contain">
+      <div className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-7 max-w-4xl w-full shadow-2xl border border-stone-200 animate-in fade-in zoom-in-95 duration-150 my-auto max-h-[calc(100dvh-1.25rem)] sm:max-h-[min(90vh,880px)] flex flex-col">
         {/* Header com Identificação pelo Nome e Papel (Sem UIDs brutos) */}
-        <div className="flex items-start justify-between pb-4 border-b border-stone-100 shrink-0">
+        <div className="flex items-start justify-between pb-3 sm:pb-4 border-b border-stone-100 shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-900 border border-amber-200 flex items-center justify-center font-bold text-xl">
               {user.name.charAt(0).toUpperCase()}
@@ -678,8 +678,8 @@ export const AdminUserActivityModal: React.FC<AdminUserActivityModalProps> = ({
 
         {/* Modal interno para justificativa de desativação administrativa */}
         {deactivatingProfile && (
-          <div className="fixed inset-0 z-60 bg-stone-900/60 flex items-center justify-center p-4">
-            <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-stone-200 space-y-3">
+          <div className="fixed inset-0 z-60 overflow-y-auto bg-stone-900/60 backdrop-blur-xs flex justify-center items-start sm:items-center p-2.5 sm:p-4 overscroll-contain">
+            <div className="bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-6 max-w-sm w-full shadow-2xl border border-stone-200 space-y-3 my-auto max-h-[calc(100dvh-1.25rem)] sm:max-h-[min(90vh,700px)] overflow-y-auto">
               <h4 className="text-sm font-bold text-stone-900">Desativar Perfil Administrativamente</h4>
               <p className="text-xs text-stone-600">
                 Informe o motivo da desativação para auditoria:
