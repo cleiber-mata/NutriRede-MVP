@@ -1,0 +1,157 @@
+// Backup of firestore.rules before critical lockdown of bootstrap
+// Timestamp: 2026-11-02T08:29:00-08:00
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Funções auxiliares de validação
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Consulta aos registros de governança no banco de dados
+    function hasAdminDoc(uid) {
+      return exists(/databases/$(database)/documents/admins/$(uid));
+    }
+
+    function getAdminDoc(uid) {
+      return get(/databases/$(database)/documents/admins/$(uid)).data;
+    }
+
+    function hasSystemConfig() {
+      return exists(/databases/$(database)/documents/system/config);
+    }
+
+    function getSystemConfig() {
+      return get(/databases/$(database)/documents/system/config).data;
+    }
+
+    // O usuário é o PROPRIETÁRIO (OWNER) com autoridade máxima de governança
+    function isSystemOwner() {
+      return isSignedIn() && (
+        (hasAdminDoc(request.auth.uid) && getAdminDoc(request.auth.uid).role == 'OWNER') ||
+        (hasSystemConfig() && getSystemConfig().ownerUid == request.auth.uid)
+      );
+    }
+
+    // O usuário é ADMINISTRADOR (ADMIN ou OWNER) com permissão para homologar perfis
+    function isAdmin() {
+      return isSignedIn() && (
+        isSystemOwner() ||
+        (hasAdminDoc(request.auth.uid) && getAdminDoc(request.auth.uid).role in ['ADMIN', 'OWNER'])
+      );
+    }
+
+    // Bloqueio padrão universal
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Endpoint de teste de conectividade
+    match /test/connection {
+      allow read: if true;
+    }
+
+    // Coleção de Governança do Sistema (/system/config)
+    match /system/{docId} {
+      allow get: if isSignedIn();
+      allow list: if isAdmin();
+
+      allow create: if isSignedIn() &&
+        docId == 'config' &&
+        !hasSystemConfig() &&
+        incoming().ownerUid == request.auth.uid &&
+        incoming().keys().hasAll(['ownerUid', 'ownerEmail', 'initializedAt', 'systemVersion']);
+
+      allow update: if isSystemOwner() &&
+        docId == 'config' &&
+        incoming().keys().hasAll(['ownerUid', 'ownerEmail', 'initializedAt', 'systemVersion']);
+
+      allow delete: if false;
+    }
+
+    // Coleção de Administradores (/admins/{adminId})
+    match /admins/{adminId} {
+      allow get: if isSignedIn() && (request.auth.uid == adminId || isAdmin());
+      allow list: if isAdmin();
+
+      allow create: if isSignedIn() && (
+        (!hasSystemConfig() && adminId == request.auth.uid && incoming().uid == request.auth.uid && incoming().role == 'OWNER') ||
+        (isSystemOwner() && isValidId(adminId) && incoming().uid == adminId && incoming().role in ['ADMIN', 'OWNER'])
+      );
+
+      allow update: if isSystemOwner() &&
+        incoming().uid == existing().uid &&
+        incoming().role in ['ADMIN', 'OWNER'];
+
+      allow delete: if isSystemOwner() && adminId != request.auth.uid;
+    }
+
+    // Coleção: Usuários (/users/{userId})
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+      allow create: if isOwner(userId) &&
+        isValidId(userId) &&
+        incoming().uid == request.auth.uid &&
+        incoming().name is string &&
+        incoming().name.size() >= 2 &&
+        incoming().name.size() <= 120 &&
+        incoming().email is string &&
+        incoming().email.size() <= 120 &&
+        incoming().accountStatus in ['ACTIVE', 'BLOCKED'] &&
+        incoming().keys().hasAll(['uid', 'name', 'email', 'createdAt', 'accountStatus']) &&
+        incoming().keys().hasOnly(['uid', 'name', 'email', 'phone', 'createdAt', 'accountStatus']);
+
+      allow update: if (
+        isOwner(userId) &&
+        incoming().uid == existing().uid &&
+        incoming().email == existing().email &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['name', 'phone'])
+      ) || isAdmin();
+
+      allow delete: if isSystemOwner();
+    }
+
+    // Coleção: Perfis de Atuação (/profiles/{profileId})
+    match /profiles/{profileId} {
+      allow get: if isSignedIn() && (
+        resource.data.userId == request.auth.uid || isAdmin()
+      );
+      allow list: if isSignedIn() && (
+        resource.data.userId == request.auth.uid || isAdmin()
+      );
+
+      allow create: if isSignedIn() &&
+        incoming().userId == request.auth.uid &&
+        incoming().status == 'PENDENTE' &&
+        incoming().profileType in ['DONOR', 'RECEIVER', 'TRANSPORTER'] &&
+        incoming().userName is string &&
+        incoming().userName.size() <= 120 &&
+        incoming().userEmail is string &&
+        incoming().userEmail.size() <= 120 &&
+        incoming().keys().hasAll(['id', 'userId', 'userName', 'userEmail', 'profileType', 'status', 'requestedAt']) &&
+        incoming().keys().hasOnly(['id', 'userId', 'userName', 'userEmail', 'userPhone', 'profileType', 'status', 'requestedAt', 'decidedAt', 'decidedBy', 'decisionNotes']);
+
+      allow update: if isAdmin();
+
+      allow delete: if isSystemOwner();
+    }
+  }
+}

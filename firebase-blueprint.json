@@ -1,0 +1,374 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Dados da conta cadastrada na plataforma NutriRede",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Identificador único do Firebase Auth"
+        },
+        "name": {
+          "type": "string",
+          "description": "Nome completo ou razão social de exibição",
+          "minLength": 2,
+          "maxLength": 120
+        },
+        "email": {
+          "type": "string",
+          "description": "Endereço de e-mail do usuário",
+          "maxLength": 120
+        },
+        "phone": {
+          "type": "string",
+          "description": "Telefone ou WhatsApp para contato (opcional)",
+          "maxLength": 30
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp ISO da data de cadastro da conta"
+        },
+        "accountStatus": {
+          "type": "string",
+          "description": "Situação geral da conta de usuário",
+          "enum": ["ACTIVE", "BLOCKED"]
+        }
+      },
+      "required": ["uid", "name", "email", "createdAt", "accountStatus"]
+    },
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Perfil de atuação específico vinculado a um usuário (Doador, Entidade Receptora ou Transportador)",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Identificador do perfil no formato userId_profileType"
+        },
+        "userId": {
+          "type": "string",
+          "description": "ID do usuário associado"
+        },
+        "userName": {
+          "type": "string",
+          "description": "Nome do usuário para visualização ágil",
+          "maxLength": 120
+        },
+        "userEmail": {
+          "type": "string",
+          "description": "E-mail do usuário para visualização ágil",
+          "maxLength": 120
+        },
+        "userPhone": {
+          "type": "string",
+          "description": "Telefone de contato do usuário",
+          "maxLength": 30
+        },
+        "profileType": {
+          "type": "string",
+          "description": "Tipo de perfil de atuação",
+          "enum": ["DONOR", "RECEIVER", "TRANSPORTER"]
+        },
+        "status": {
+          "type": "string",
+          "description": "Situação de aprovação do perfil",
+          "enum": ["PENDENTE", "APROVADO", "REJEITADO"]
+        },
+        "requestedAt": {
+          "type": "string",
+          "description": "Timestamp de quando o perfil foi solicitado"
+        },
+        "decidedAt": {
+          "type": "string",
+          "description": "Timestamp da decisão administrativa"
+        },
+        "decidedBy": {
+          "type": "string",
+          "description": "UID ou e-mail do administrador responsável pela decisão"
+        },
+        "decisionNotes": {
+          "type": "string",
+          "description": "Observações ou justificativa da aprovação/rejeição",
+          "maxLength": 300
+        }
+      },
+      "required": ["id", "userId", "userName", "userEmail", "profileType", "status", "requestedAt"]
+    },
+    "Admin": {
+      "title": "Admin",
+      "description": "Registro de administradores e proprietário do sistema NutriRede",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Identificador único do administrador (Firebase Auth UID)"
+        },
+        "email": {
+          "type": "string",
+          "description": "E-mail oficial do administrador"
+        },
+        "role": {
+          "type": "string",
+          "description": "Nível de privilégio administrativo",
+          "enum": ["OWNER", "ADMIN"]
+        },
+        "assignedBy": {
+          "type": "string",
+          "description": "UID do proprietário que concedeu o privilégio"
+        },
+        "assignedAt": {
+          "type": "string",
+          "description": "Timestamp de concessão da credencial"
+        }
+      },
+      "required": ["uid", "email", "role", "assignedAt"]
+    },
+    "SystemConfig": {
+      "title": "SystemConfig",
+      "description": "Configuração central de governança e registro do proprietário (OWNER)",
+      "type": "object",
+      "properties": {
+        "ownerUid": {
+          "type": "string",
+          "description": "UID do Firebase do Proprietário atual da plataforma"
+        },
+        "ownerEmail": {
+          "type": "string",
+          "description": "E-mail do proprietário"
+        },
+        "initializedAt": {
+          "type": "string",
+          "description": "Data de inicialização do sistema"
+        },
+        "systemVersion": {
+          "type": "string",
+          "description": "Versão do sistema NutriRede"
+        }
+      },
+      "required": ["ownerUid", "ownerEmail", "initializedAt", "systemVersion"]
+    },
+    "FoodBatch": {
+      "title": "FoodBatch",
+      "description": "Lote de alimentos ofertado por um doador aprovado (RF04)",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Identificador único do lote"
+        },
+        "donorId": {
+          "type": "string",
+          "description": "UID do doador responsável"
+        },
+        "donorName": {
+          "type": "string",
+          "description": "Nome ou razão social do doador"
+        },
+        "donorEmail": {
+          "type": "string",
+          "description": "E-mail de contato do doador"
+        },
+        "donorPhone": {
+          "type": "string",
+          "description": "Telefone de contato do doador"
+        },
+        "foodName": {
+          "type": "string",
+          "description": "Identificação ou descrição dos alimentos",
+          "minLength": 3,
+          "maxLength": 150
+        },
+        "category": {
+          "type": "string",
+          "description": "Categoria dos alimentos",
+          "enum": ["Hortifruti", "Padaria e Grãos", "Laticínios e Derivados", "Refeições Preparadas", "Mercearia e Embalados", "Outros"]
+        },
+        "quantity": {
+          "type": "number",
+          "description": "Quantidade positiva de alimentos doados"
+        },
+        "unit": {
+          "type": "string",
+          "description": "Unidade de medida do lote",
+          "enum": ["kg", "g", "litros", "unidades"]
+        },
+        "expirationDate": {
+          "type": "string",
+          "description": "Data de validade do alimento (ISO)"
+        },
+        "storageCondition": {
+          "type": "string",
+          "description": "Condições de conservação exigidas",
+          "maxLength": 150
+        },
+        "pickupAddress": {
+          "type": "string",
+          "description": "Endereço ou local de retirada do lote",
+          "maxLength": 200
+        },
+        "pickupWindowStart": {
+          "type": "string",
+          "description": "Data e horário de início da janela de retirada (ISO)"
+        },
+        "pickupWindowEnd": {
+          "type": "string",
+          "description": "Data e horário de término da janela de retirada (ISO)"
+        },
+        "fitForConsumption": {
+          "type": "boolean",
+          "description": "Declaração explícita de que o alimento está próprio para consumo"
+        },
+        "status": {
+          "type": "string",
+          "description": "Estado operacional do lote",
+          "enum": ["DISPONIVEL", "RESERVADO", "CANCELADO", "EXPIRADO"]
+        },
+        "activeReservationId": {
+          "type": "string",
+          "description": "ID da reserva ativa vinculada para exclusividade (RN04)"
+        },
+        "reservedBy": {
+          "type": "string",
+          "description": "UID da entidade receptora que realizou a reserva ativa"
+        },
+        "reservedByName": {
+          "type": "string",
+          "description": "Nome da entidade receptora que realizou a reserva ativa"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Data e hora de publicação do lote"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Data e hora da última atualização"
+        }
+      },
+      "required": ["id", "donorId", "donorName", "foodName", "category", "quantity", "unit", "expirationDate", "storageCondition", "pickupAddress", "pickupWindowStart", "pickupWindowEnd", "fitForConsumption", "status", "createdAt"]
+    },
+    "Reservation": {
+      "title": "Reservation",
+      "description": "Reserva de lote de alimento realizada por entidade receptora (RF06, RF07, RF08)",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Identificador único da reserva"
+        },
+        "batchId": {
+          "type": "string",
+          "description": "ID do lote reservado"
+        },
+        "foodName": {
+          "type": "string",
+          "description": "Nome do alimento para visualização direta"
+        },
+        "batchQuantity": {
+          "type": "number",
+          "description": "Quantidade de alimento reservada"
+        },
+        "batchUnit": {
+          "type": "string",
+          "description": "Unidade de medida do lote"
+        },
+        "expirationDate": {
+          "type": "string",
+          "description": "Validade do lote para acompanhamento"
+        },
+        "pickupAddress": {
+          "type": "string",
+          "description": "Endereço de retirada"
+        },
+        "pickupWindowStart": {
+          "type": "string",
+          "description": "Início da janela de retirada"
+        },
+        "pickupWindowEnd": {
+          "type": "string",
+          "description": "Término da janela de retirada"
+        },
+        "donorId": {
+          "type": "string",
+          "description": "UID do doador responsável pelo lote"
+        },
+        "donorName": {
+          "type": "string",
+          "description": "Nome do doador"
+        },
+        "receiverId": {
+          "type": "string",
+          "description": "UID da entidade receptora solicitante"
+        },
+        "receiverName": {
+          "type": "string",
+          "description": "Nome ou razão social da entidade receptora"
+        },
+        "receiverEmail": {
+          "type": "string",
+          "description": "E-mail de contato da entidade"
+        },
+        "receiverPhone": {
+          "type": "string",
+          "description": "Telefone de contato da entidade"
+        },
+        "status": {
+          "type": "string",
+          "description": "Situação da reserva",
+          "enum": ["PENDENTE_APROVACAO", "APROVADA", "REJEITADA", "CANCELADA"]
+        },
+        "requestedAt": {
+          "type": "string",
+          "description": "Data e hora de realização da solicitação de reserva"
+        },
+        "decidedAt": {
+          "type": "string",
+          "description": "Data e hora da decisão administrativa"
+        },
+        "decidedBy": {
+          "type": "string",
+          "description": "Nome ou identificador do administrador ou proprietário responsável"
+        },
+        "decisionNotes": {
+          "type": "string",
+          "description": "Justificativa da decisão administrativa de aprovação ou rejeição"
+        },
+        "canceledAt": {
+          "type": "string",
+          "description": "Data e hora do cancelamento pela entidade"
+        },
+        "cancelReason": {
+          "type": "string",
+          "description": "Motivo do cancelamento informado pela entidade"
+        }
+      },
+      "required": ["id", "batchId", "foodName", "batchQuantity", "batchUnit", "donorId", "donorName", "receiverId", "receiverName", "receiverEmail", "status", "requestedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Documentos com as informações cadastrais básicas das contas de usuários"
+    },
+    "/profiles/{profileId}": {
+      "schema": "UserProfile",
+      "description": "Perfis individuais de atuação com status de aprovação independente"
+    },
+    "/admins/{adminId}": {
+      "schema": "Admin",
+      "description": "Lista de administradores e proprietário com controle de privilégios"
+    },
+    "/system/{docId}": {
+      "schema": "SystemConfig",
+      "description": "Configurações imutáveis de governança e autoridade central do OWNER"
+    },
+    "/food_batches/{batchId}": {
+      "schema": "FoodBatch",
+      "description": "Lotes de alimentos excedentes cadastrados por doadores aprovados (RF04)"
+    },
+    "/reservations/{reservationId}": {
+      "schema": "Reservation",
+      "description": "Solicitações e reservas exclusivas de lotes por entidades receptoras (RF06, RF07, RF08)"
+    }
+  }
+}

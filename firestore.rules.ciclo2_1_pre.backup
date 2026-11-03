@@ -1,0 +1,271 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Funções auxiliares de validação estática
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Consulta aos registros de governança no banco de dados
+    function hasAdminDoc(uid) {
+      return exists(/databases/$(database)/documents/admins/$(uid));
+    }
+
+    function getAdminDoc(uid) {
+      return get(/databases/$(database)/documents/admins/$(uid)).data;
+    }
+
+    function hasSystemConfig() {
+      return exists(/databases/$(database)/documents/system/config);
+    }
+
+    function getSystemConfig() {
+      return get(/databases/$(database)/documents/system/config).data;
+    }
+
+    // O usuário é o PROPRIETÁRIO (OWNER) apenas se houver consistência estrita:
+    function isSystemOwner() {
+      return isSignedIn() &&
+        hasSystemConfig() &&
+        getSystemConfig().ownerUid == request.auth.uid &&
+        hasAdminDoc(request.auth.uid) &&
+        getAdminDoc(request.auth.uid).role == 'OWNER' &&
+        getAdminDoc(request.auth.uid).uid == request.auth.uid;
+    }
+
+    // O usuário é ADMINISTRADOR se for o OWNER ou tiver role in ['ADMIN', 'OWNER'] em /admins/{uid}
+    function isAdmin() {
+      return isSignedIn() && (
+        isSystemOwner() ||
+        (hasAdminDoc(request.auth.uid) && getAdminDoc(request.auth.uid).role in ['ADMIN', 'OWNER'])
+      );
+    }
+
+    // Verificação de aprovação de perfil específico do usuário
+    function hasApprovedProfile(profileType) {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/profiles/$(request.auth.uid + '_' + profileType)) &&
+        get(/databases/$(database)/documents/profiles/$(request.auth.uid + '_' + profileType)).data.status == 'APROVADO';
+    }
+
+    // Bloqueio padrão universal
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Endpoint de teste de conectividade
+    match /test/connection {
+      allow read: if true;
+    }
+
+    // Coleção de Governança do Sistema (/system/config)
+    match /system/{docId} {
+      allow get: if isSignedIn();
+      allow list: if isAdmin();
+      allow create: if false;
+      allow update: if isSystemOwner() &&
+        docId == 'config' &&
+        incoming().keys().hasAll(['ownerUid', 'ownerEmail', 'initializedAt', 'systemVersion']);
+      allow delete: if false;
+    }
+
+    // Coleção de Administradores (/admins/{adminId})
+    match /admins/{adminId} {
+      allow get: if isSignedIn() && (request.auth.uid == adminId || isAdmin());
+      allow list: if isAdmin();
+      allow create: if isSystemOwner() &&
+        isValidId(adminId) &&
+        incoming().uid == adminId &&
+        incoming().role in ['ADMIN', 'OWNER'];
+      allow update: if isSystemOwner() &&
+        incoming().uid == existing().uid &&
+        incoming().role in ['ADMIN', 'OWNER'];
+      allow delete: if isSystemOwner() && adminId != request.auth.uid;
+    }
+
+    // Coleção: Usuários (/users/{userId})
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+      allow create: if isOwner(userId) &&
+        isValidId(userId) &&
+        incoming().uid == request.auth.uid &&
+        incoming().name is string &&
+        incoming().name.size() >= 2 &&
+        incoming().name.size() <= 120 &&
+        incoming().email is string &&
+        incoming().email.size() <= 120 &&
+        incoming().accountStatus in ['ACTIVE', 'BLOCKED'] &&
+        incoming().keys().hasAll(['uid', 'name', 'email', 'createdAt', 'accountStatus']) &&
+        incoming().keys().hasOnly(['uid', 'name', 'email', 'phone', 'address', 'notes', 'createdAt', 'updatedAt', 'accountStatus']);
+
+      allow update: if (
+        isOwner(userId) &&
+        incoming().uid == existing().uid &&
+        incoming().email == existing().email &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['name', 'phone', 'address', 'notes', 'updatedAt'])
+      ) || isAdmin();
+
+      allow delete: if isSystemOwner();
+    }
+
+    // Coleção: Perfis de Atuação (/profiles/{profileId})
+    match /profiles/{profileId} {
+      allow get: if isSignedIn() && (
+        resource.data.userId == request.auth.uid || isAdmin()
+      );
+      allow list: if isSignedIn() && (
+        resource.data.userId == request.auth.uid || isAdmin()
+      );
+
+      allow create: if isSignedIn() &&
+        incoming().userId == request.auth.uid &&
+        incoming().status == 'PENDENTE' &&
+        incoming().profileType in ['DONOR', 'RECEIVER', 'TRANSPORTER'] &&
+        incoming().userName is string &&
+        incoming().userName.size() <= 120 &&
+        incoming().userEmail is string &&
+        incoming().userEmail.size() <= 120 &&
+        incoming().keys().hasAll(['id', 'userId', 'userName', 'userEmail', 'profileType', 'status', 'requestedAt']);
+
+      allow update: if (
+        // Usuário atualizando dados de contato do seu perfil (sem alterar status nem UID)
+        isSignedIn() &&
+        existing().userId == request.auth.uid &&
+        incoming().userId == existing().userId &&
+        incoming().profileType == existing().profileType &&
+        (
+          // Edição de contato
+          (incoming().diff(existing()).affectedKeys().hasOnly(['userName', 'userPhone', 'address', 'operationalNotes', 'lastEditedAt', 'lastEditedBy']) &&
+           incoming().status == existing().status) ||
+          // Desativação voluntária segura
+          (incoming().diff(existing()).affectedKeys().hasOnly(['status', 'deactivatedAt', 'deactivatedBy', 'deactivationReason', 'lastEditedAt']) &&
+           incoming().status == 'DESATIVADO') ||
+          // Pedido de reativação (vai para PENDENTE)
+          (incoming().diff(existing()).affectedKeys().hasOnly(['status', 'reactivatedAt', 'lastEditedAt', 'decisionNotes']) &&
+           incoming().status == 'PENDENTE')
+        )
+      ) || isAdmin();
+
+      allow delete: if isSystemOwner();
+    }
+
+    // ==========================================
+    // CICLO 2: LOTES DE ALIMENTOS (/food_batches/{batchId})
+    // ==========================================
+    match /food_batches/{batchId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+
+      // RF04: Apenas DOADOR APROVADO pode cadastrar lote
+      allow create: if isSignedIn() &&
+        hasApprovedProfile('DONOR') &&
+        incoming().donorId == request.auth.uid &&
+        incoming().status == 'DISPONIVEL' &&
+        incoming().quantity is number &&
+        incoming().quantity > 0 &&
+        incoming().unit in ['kg', 'g', 'litros', 'unidades'] &&
+        incoming().fitForConsumption == true &&
+        incoming().foodName is string &&
+        incoming().foodName.size() >= 3 &&
+        incoming().foodName.size() <= 150 &&
+        incoming().keys().hasAll([
+          'id', 'donorId', 'donorName', 'foodName', 'category',
+          'quantity', 'unit', 'expirationDate', 'storageCondition',
+          'pickupAddress', 'pickupWindowStart', 'pickupWindowEnd',
+          'fitForConsumption', 'status', 'createdAt'
+        ]);
+
+      // Atualização de lotes:
+      allow update: if isSignedIn() && (
+        // Doador cancelando o lote
+        (existing().donorId == request.auth.uid &&
+         incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']) &&
+         incoming().status == 'CANCELADO') ||
+
+        // Entidade receptora aprovada reservando o lote disponível (bloqueia autorreserva)
+        (hasApprovedProfile('RECEIVER') &&
+         existing().status == 'DISPONIVEL' &&
+         incoming().status == 'RESERVADO' &&
+         incoming().reservedBy == request.auth.uid &&
+         existing().donorId != request.auth.uid &&
+         incoming().reservedBy != existing().donorId) ||
+
+        // Entidade receptora liberando lote após cancelamento de sua reserva
+        (hasApprovedProfile('RECEIVER') &&
+         existing().reservedBy == request.auth.uid &&
+         (incoming().status == 'DISPONIVEL' || incoming().status == 'EXPIRADO')) ||
+
+        // Administrador gerenciando status de reserva
+        isAdmin()
+      );
+
+      allow delete: if isSystemOwner();
+    }
+
+    // ==========================================
+    // CICLO 2: RESERVAS DE LOTES (/reservations/{reservationId})
+    // ==========================================
+    match /reservations/{reservationId} {
+      allow get: if isSignedIn() && (
+        resource.data.receiverId == request.auth.uid ||
+        resource.data.donorId == request.auth.uid ||
+        isAdmin()
+      );
+
+      allow list: if isSignedIn() && (
+        resource.data.receiverId == request.auth.uid ||
+        resource.data.donorId == request.auth.uid ||
+        isAdmin()
+      );
+
+      // RF06: Apenas ENTIDADE RECEPTORA APROVADA pode solicitar reserva
+      // Proibição estrita de autorreserva (donorId != request.auth.uid)
+      allow create: if isSignedIn() &&
+        hasApprovedProfile('RECEIVER') &&
+        incoming().receiverId == request.auth.uid &&
+        incoming().status == 'PENDENTE_APROVACAO' &&
+        incoming().donorId != request.auth.uid &&
+        incoming().receiverId != incoming().donorId &&
+        exists(/databases/$(database)/documents/food_batches/$(incoming().batchId)) &&
+        get(/databases/$(database)/documents/food_batches/$(incoming().batchId)).data.donorId != request.auth.uid &&
+        incoming().keys().hasAll([
+          'id', 'batchId', 'foodName', 'batchQuantity', 'batchUnit',
+          'donorId', 'donorName', 'receiverId', 'receiverName',
+          'receiverEmail', 'status', 'requestedAt'
+        ]);
+
+      // RF07 e RF08: Atualização de reservas
+      allow update: if isSignedIn() && (
+        // RF07: Cancelamento pela própria entidade receptora solicitante
+        (existing().receiverId == request.auth.uid &&
+         incoming().status == 'CANCELADA' &&
+         incoming().diff(existing()).affectedKeys().hasOnly(['status', 'canceledAt', 'cancelReason'])) ||
+
+        // RF08: Homologação ou rejeição exclusivamente pelo Administrador ou Proprietário
+        (isAdmin() &&
+         incoming().status in ['APROVADA', 'REJEITADA'] &&
+         incoming().diff(existing()).affectedKeys().hasOnly(['status', 'decidedAt', 'decidedBy', 'decisionNotes']))
+      );
+
+      allow delete: if isSystemOwner();
+    }
+  }
+}
