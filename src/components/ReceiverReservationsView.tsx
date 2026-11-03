@@ -283,7 +283,7 @@ export const ReceiverReservationsView: React.FC<ReceiverReservationsViewProps> =
                         Data da Solicitação
                       </span>
                       <span className="text-stone-800">
-                        {new Date(res.requestedAt).toLocaleString('pt-BR')}
+                        {formatDateTimeBR(res.requestedAt)}
                       </span>
                     </div>
                   </div>

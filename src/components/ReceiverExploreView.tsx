@@ -235,8 +235,10 @@ export const ReceiverExploreView: React.FC<ReceiverExploreViewProps> = ({
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {filtered.map((batch) => {
-            const expDate = new Date(batch.expirationDate);
-            const daysLeft = Math.ceil((expDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+            // Previne desvio de fuso horário UTC: se YYYY-MM-DD, avalia no final do dia local
+            const expDateStr = batch.expirationDate.includes('T') ? batch.expirationDate : `${batch.expirationDate}T23:59:59`;
+            const expDate = new Date(expDateStr);
+            const daysLeft = Math.max(0, Math.ceil((expDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
 
             return (
               <div
@@ -282,7 +284,7 @@ export const ReceiverExploreView: React.FC<ReceiverExploreViewProps> = ({
                           daysLeft <= 2 ? 'text-amber-700 font-bold' : 'text-stone-800'
                         }`}
                       >
-                        {expDate.toLocaleDateString('pt-BR')}{' '}
+                        {formatDateBR(batch.expirationDate)}{' '}
                         <span className="text-[10px] font-normal text-stone-500">
                           ({daysLeft === 0 ? 'Hoje' : `${daysLeft}d restantes`})
                         </span>

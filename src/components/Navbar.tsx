@@ -143,7 +143,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                             {PROFILE_DEFINITIONS[activeProfile.profileType]?.title || activeProfile.profileType}
                           </span>
                           <span
-                            className={`text-[10px] px-1.5 py-0.2 rounded-md font-medium border ${
+                            className={`text-[10px] px-1.5 py-0.5 rounded-md font-medium border ${
                               STATUS_CONFIG[activeProfile.status]?.badgeClass
                             }`}
                           >
@@ -304,7 +304,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               }}
               className="w-full text-left px-3 py-2 text-sm font-medium rounded-lg text-stone-700 hover:bg-stone-50"
             >
-              Requisitos & Testes (RF01–RF08)
+              Requisitos & Testes (RF01–RF16)
             </button>
             {isAdmin && (
               <button

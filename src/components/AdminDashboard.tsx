@@ -253,7 +253,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToHome }) 
             {isOwner ? <Crown className="w-3.5 h-3.5 text-amber-300" /> : <Shield className="w-3.5 h-3.5" />}
             {isOwner ? 'Proprietário do Sistema (OWNER)' : 'Administrador Autorizado (ADMIN)'}
             <span className="text-amber-400">•</span>
-            <span>RF03 Homologação</span>
+            <span>Governança & Homologação</span>
           </div>
           <h1 className="text-3xl font-bold font-serif">Painel de Homologação e Auditoria</h1>
           <p className="text-amber-100/80 text-xs sm:text-sm mt-1 max-w-xl">

@@ -411,7 +411,7 @@ export const RESERVATION_STATUS_CONFIG: Record<ReservationStatus, {
     bgLight: 'bg-emerald-50',
     textColor: 'text-emerald-800',
     borderColor: 'border-emerald-200',
-    description: 'Homologada pelo administrador. Pronta para agendamento de transporte no Ciclo 3.'
+    description: 'Homologada pelo administrador. Pronta para aceite e retirada pelo transportador.'
   },
   REJEITADA: {
     label: 'Solicitação Rejeitada',

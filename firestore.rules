@@ -183,9 +183,12 @@ service cloud.firestore {
         incoming().userId == existing().userId &&
         incoming().profileType == existing().profileType &&
         (
-          // Edição de contato
-          (incoming().diff(existing()).affectedKeys().hasOnly(['userName', 'userPhone', 'address', 'operationalNotes', 'lastEditedAt', 'lastEditedBy']) &&
-           incoming().status == existing().status) ||
+          // Edição de contato e disponibilidade operacional de transporte
+          (incoming().diff(existing()).affectedKeys().hasOnly([
+             'userName', 'userPhone', 'address', 'operationalNotes',
+             'transporterAvailability', 'availabilityUpdatedAt',
+             'lastEditedAt', 'lastEditedBy'
+           ]) && incoming().status == existing().status) ||
           // Sincronização segura de e-mail verificado no Firebase Auth
           (incoming().userEmail == request.auth.token.email &&
            incoming().diff(existing()).affectedKeys().hasOnly(['userEmail', 'previousEmail', 'emailChangedAt', 'lastEditedAt', 'lastEditedBy']) &&
@@ -203,7 +206,7 @@ service cloud.firestore {
     }
 
     // ==========================================
-    // CICLO 2: LOTES DE ALIMENTOS (/food_batches/{batchId})
+    // CICLO 2 & 3: LOTES DE ALIMENTOS (/food_batches/{batchId})
     // ==========================================
     match /food_batches/{batchId} {
       allow get: if isSignedIn();
@@ -228,7 +231,7 @@ service cloud.firestore {
           'fitForConsumption', 'status', 'createdAt'
         ]);
 
-      // Atualização de lotes:
+      // Atualização de lotes com rastreabilidade completa do ciclo de vida:
       allow update: if isSignedIn() && (
         // Doador cancelando o lote
         (existing().donorId == request.auth.uid &&
@@ -248,6 +251,24 @@ service cloud.firestore {
          existing().reservedBy == request.auth.uid &&
          (incoming().status == 'DISPONIVEL' || incoming().status == 'EXPIRADO')) ||
 
+        // Transportador aprovado aceitando coleta: vincula activePickupId e dados do transportador
+        (hasApprovedProfile('TRANSPORTER') &&
+         existing().status == 'RESERVADO' &&
+         incoming().transporterId == request.auth.uid &&
+         incoming().diff(existing()).affectedKeys().hasOnly(['activePickupId', 'transporterId', 'transporterName', 'updatedAt'])) ||
+
+        // Transportador aprovado confirmando retirada: transição para EM_TRANSPORTE
+        (hasApprovedProfile('TRANSPORTER') &&
+         existing().transporterId == request.auth.uid &&
+         incoming().status == 'EM_TRANSPORTE' &&
+         incoming().diff(existing()).affectedKeys().hasOnly(['status', 'pickedUpAt', 'updatedAt'])) ||
+
+        // Entidade receptora titular confirmando recebimento: transição final para CONCLUIDO (RN08)
+        (hasApprovedProfile('RECEIVER') &&
+         existing().reservedBy == request.auth.uid &&
+         incoming().status == 'CONCLUIDO' &&
+         incoming().diff(existing()).affectedKeys().hasOnly(['status', 'completedAt', 'updatedAt'])) ||
+
         // Administrador gerenciando status de reserva
         isAdmin()
       );
@@ -256,19 +277,23 @@ service cloud.firestore {
     }
 
     // ==========================================
-    // CICLO 2: RESERVAS DE LOTES (/reservations/{reservationId})
+    // CICLO 2 & 3: RESERVAS DE LOTES (/reservations/{reservationId})
     // ==========================================
     match /reservations/{reservationId} {
       allow get: if isSignedIn() && (
         resource.data.receiverId == request.auth.uid ||
         resource.data.donorId == request.auth.uid ||
+        resource.data.transporterId == request.auth.uid ||
+        hasApprovedProfile('TRANSPORTER') ||
         isAdmin()
       );
 
       allow list: if isSignedIn() && (
+        hasApprovedProfile('TRANSPORTER') ||
+        isAdmin() ||
         resource.data.receiverId == request.auth.uid ||
         resource.data.donorId == request.auth.uid ||
-        isAdmin()
+        resource.data.transporterId == request.auth.uid
       );
 
       // RF06: Apenas ENTIDADE RECEPTORA APROVADA pode solicitar reserva
@@ -287,12 +312,27 @@ service cloud.firestore {
           'receiverEmail', 'status', 'requestedAt'
         ]);
 
-      // RF07 e RF08: Atualização de reservas
+      // Atualização de reservas em conformidade com o ciclo operacional:
       allow update: if isSignedIn() && (
         // RF07: Cancelamento pela própria entidade receptora solicitante
         (existing().receiverId == request.auth.uid &&
          incoming().status == 'CANCELADA' &&
          incoming().diff(existing()).affectedKeys().hasOnly(['status', 'canceledAt', 'cancelReason'])) ||
+
+        // RF10: Vinculação de coleta aceita por transportador aprovado
+        (hasApprovedProfile('TRANSPORTER') &&
+         existing().status == 'APROVADA' &&
+         incoming().transporterId == request.auth.uid &&
+         incoming().diff(existing()).affectedKeys().hasOnly(['activePickupId', 'transporterId', 'transporterName', 'updatedAt'])) ||
+
+        // RF11: Registro de retirada pelo transportador titular
+        (hasApprovedProfile('TRANSPORTER') &&
+         existing().transporterId == request.auth.uid &&
+         incoming().diff(existing()).affectedKeys().hasOnly(['pickedUpAt'])) ||
+
+        // RF12: Registro de recebimento concluído pela entidade receptora titular (RN08)
+        (existing().receiverId == request.auth.uid &&
+         incoming().diff(existing()).affectedKeys().hasOnly(['completedAt', 'deliveryId', 'updatedAt'])) ||
 
         // RF08: Homologação ou rejeição exclusivamente pelo Administrador ou Proprietário
         (isAdmin() &&
@@ -301,6 +341,124 @@ service cloud.firestore {
       );
 
       allow delete: if isSystemOwner();
+    }
+
+    // ==========================================
+    // CICLO 3: COLETAS (/pickups/{pickupId})
+    // ==========================================
+    match /pickups/{pickupId} {
+      allow get: if isSignedIn() && (
+        resource.data.transporterUserId == request.auth.uid ||
+        resource.data.receiverId == request.auth.uid ||
+        resource.data.donorId == request.auth.uid ||
+        isAdmin()
+      );
+
+      allow list: if isSignedIn() && (
+        hasApprovedProfile('TRANSPORTER') ||
+        isAdmin() ||
+        resource.data.transporterUserId == request.auth.uid ||
+        resource.data.receiverId == request.auth.uid ||
+        resource.data.donorId == request.auth.uid
+      );
+
+      // RF10: Aceite exclusivo por Transportador Aprovado
+      allow create: if isSignedIn() &&
+        hasApprovedProfile('TRANSPORTER') &&
+        incoming().transporterUserId == request.auth.uid &&
+        incoming().status == 'ACEITA' &&
+        incoming().keys().hasAll([
+          'id', 'reservationId', 'batchId', 'foodName', 'batchQuantity',
+          'batchUnit', 'donorId', 'donorName', 'pickupAddress',
+          'pickupWindowStart', 'pickupWindowEnd', 'receiverId',
+          'receiverName', 'transporterUserId', 'transporterName',
+          'transporterEmail', 'status', 'acceptedAt'
+        ]);
+
+      // RF11: Registro de Retirada pelo Transportador Titular
+      allow update: if isSignedIn() && (
+        (existing().transporterUserId == request.auth.uid &&
+         incoming().status == 'RETIRADA' &&
+         incoming().diff(existing()).affectedKeys().hasOnly(['status', 'pickedUpAt'])) ||
+        isAdmin()
+      );
+
+      allow delete: if isSystemOwner();
+    }
+
+    // ==========================================
+    // CICLO 3: ENTREGAS (/deliveries/{deliveryId})
+    // ==========================================
+    match /deliveries/{deliveryId} {
+      allow get: if isSignedIn() && (
+        resource.data.receiverUserId == request.auth.uid ||
+        resource.data.transporterUserId == request.auth.uid ||
+        resource.data.donorId == request.auth.uid ||
+        isAdmin()
+      );
+
+      allow list: if isSignedIn() && (
+        hasApprovedProfile('RECEIVER') ||
+        isAdmin() ||
+        resource.data.receiverUserId == request.auth.uid ||
+        resource.data.transporterUserId == request.auth.uid ||
+        resource.data.donorId == request.auth.uid
+      );
+
+      // RF12 & RN08: Confirmação de Entrega pela Entidade Receptora Vinculada
+      allow create: if isSignedIn() &&
+        hasApprovedProfile('RECEIVER') &&
+        incoming().receiverUserId == request.auth.uid &&
+        incoming().keys().hasAll([
+          'id', 'pickupId', 'reservationId', 'batchId', 'foodName',
+          'batchQuantity', 'batchUnit', 'donorId', 'donorName',
+          'receiverUserId', 'receiverName', 'transporterUserId',
+          'transporterName', 'confirmedAt'
+        ]);
+
+      allow update: if isAdmin();
+      allow delete: if isSystemOwner();
+    }
+
+    // ==========================================
+    // CICLO 3: OCORRÊNCIAS OPERACIONAIS (/occurrences/{occurrenceId})
+    // ==========================================
+    match /occurrences/{occurrenceId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+
+      // RF14: Registro de ocorrência por participante autenticado
+      allow create: if isSignedIn() &&
+        incoming().authorUserId == request.auth.uid &&
+        incoming().stage in ['COLETA', 'TRANSPORTE', 'ENTREGA', 'GERAL'] &&
+        incoming().description is string &&
+        incoming().description.size() >= 5 &&
+        incoming().keys().hasAll([
+          'id', 'operationId', 'batchId', 'authorUserId', 'authorName',
+          'authorProfile', 'stage', 'type', 'description', 'createdAt'
+        ]);
+
+      allow update: if isAdmin();
+      allow delete: if isSystemOwner();
+    }
+
+    // ==========================================
+    // CICLO 3: HISTÓRICO DE OPERAÇÕES (/operation_history/{eventId})
+    // ==========================================
+    match /operation_history/{eventId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+
+      // RF15: Registro imutável de eventos operacionais
+      allow create: if isSignedIn() &&
+        incoming().actorUserId == request.auth.uid &&
+        incoming().keys().hasAll([
+          'id', 'objectType', 'objectId', 'event', 'actorUserId',
+          'activeProfile', 'timestamp'
+        ]);
+
+      // Trilha de auditoria imutável
+      allow update, delete: if false;
     }
   }
 }

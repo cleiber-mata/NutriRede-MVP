@@ -323,7 +323,7 @@ export const RegisterModal: React.FC<RegisterModalProps> = ({
 
               {/* Seleção dos Perfis de Atuação (RN01) */}
               <div className="pt-2">
-                <div className="flex items-center justify-between mb-2">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 mb-2">
                   <label className="block text-xs font-bold text-stone-800">
                     Selecione os Perfis de Atuação Desejados <span className="text-rose-500">*</span>
                   </label>

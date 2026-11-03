@@ -220,12 +220,12 @@ export const HomeHero: React.FC<HomeHeroProps> = ({
             </div>
           </div>
 
-          {/* Destaque Acadêmico do Ciclo 1 */}
+          {/* Destaque Acadêmico do MVP NutriRede */}
           <div className="mt-8 p-4 rounded-xl bg-stone-50 border border-stone-200 flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <FileCheck2 className="w-6 h-6 text-emerald-700 shrink-0" />
               <div className="text-xs text-stone-700">
-                <span className="font-bold text-stone-900">Escopo Rigoroso do Ciclo 1:</span> Implementação de Cadastro (RF01), Autenticação & Seleção de Perfis (RF02) e Homologação Administrativa (RF03).
+                <span className="font-bold text-stone-900">Escopo Consolidado do MVP:</span> Doação, Coleta, Transporte e Recebimento de Alimentos com Conformidade Total aos Requisitos RF01–RF16.
               </div>
             </div>
             <button

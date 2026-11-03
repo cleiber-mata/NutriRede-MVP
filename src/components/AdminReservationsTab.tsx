@@ -198,7 +198,7 @@ export const AdminReservationsTab: React.FC = () => {
             <CheckCircle2 className="w-4 h-4" />
           </div>
           <div className="text-2xl font-extrabold text-stone-900">{approvedCount}</div>
-          <p className="text-[11px] text-emerald-800 mt-0.5">Prontas para Ciclo 3</p>
+          <p className="text-[11px] text-emerald-800 mt-0.5">Aptas para Coleta e Transporte</p>
         </div>
 
         <div
