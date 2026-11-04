@@ -21,7 +21,7 @@ import { useAuth } from '../context/AuthContext';
 import { BATCH_STATUS_CONFIG, FoodBatch, FoodBatchStatus, Occurrence, Pickup, Reservation } from '../types';
 import { cancelFoodBatch } from '../services/foodBatchService';
 import { CreateBatchModal } from './CreateBatchModal';
-import { formatDateBR, formatDateTimeBR } from '../utils/dateUtils';
+import { formatDateBR, formatDateTimeBR, isBatchExpired } from '../utils/dateUtils';
 import { OperationTimeline } from './OperationTimeline';
 
 export const DonorBatchesView: React.FC = () => {
@@ -336,7 +336,8 @@ export const DonorBatchesView: React.FC = () => {
           {filteredBatches.map((batch) => {
             const statusMeta = BATCH_STATUS_CONFIG[batch.status];
             const isOperating = cancelingId === batch.id;
-            const isExpired = new Date(batch.expirationDate).getTime() < new Date().setHours(0, 0, 0, 0);
+            // M41: Avaliação de validade civil em Brasília e horário-limite seguro
+            const isExpired = isBatchExpired(batch.expirationDate, batch.consumptionDeadline);
             const linkedRes = reservations.find((r) => r.id === batch.activeReservationId || r.batchId === batch.id);
             const linkedPickup = pickups.find((p) => p.batchId === batch.id || (linkedRes && p.reservationId === linkedRes.id) || p.id === batch.activePickupId);
             const batchOccurrences = occurrences.filter((o) => o.batchId === batch.id || (linkedRes && o.operationId === linkedRes.id) || (linkedPickup && o.operationId === linkedPickup.id));
@@ -396,6 +397,11 @@ export const DonorBatchesView: React.FC = () => {
                       </span>
                       <span className={`font-semibold ${isExpired ? 'text-rose-600' : 'text-stone-800'}`}>
                         {formatDateBR(batch.expirationDate)}
+                        {batch.consumptionDeadline && (
+                          <span className="text-amber-800 font-semibold ml-1">
+                            (consumo até {batch.consumptionDeadline.replace(':', 'h')})
+                          </span>
+                        )}
                         {isExpired && ' (Vencido)'}
                       </span>
                     </div>

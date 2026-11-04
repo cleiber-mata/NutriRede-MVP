@@ -7,6 +7,11 @@ import {
 } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase/config';
 import { FoodBatch, Reservation } from '../types';
+import {
+  isDateBeforeTodayCivilBR,
+  isBatchExpired,
+  validatePickupWindowAgainstExpiration
+} from '../utils/dateUtils';
 
 export interface CreateBatchInput {
   foodName: string;
@@ -14,6 +19,7 @@ export interface CreateBatchInput {
   quantity: number;
   unit: FoodBatch['unit'];
   expirationDate: string;
+  consumptionDeadline?: string | null;
   storageCondition: string;
   pickupAddress: string;
   pickupWindowStart: string;
@@ -47,8 +53,12 @@ export async function createFoodBatch(input: CreateBatchInput): Promise<string> 
   if (!input.expirationDate) {
     throw new Error('A data de validade é obrigatória.');
   }
-  if (new Date(input.expirationDate).getTime() < new Date().setHours(0, 0, 0, 0)) {
+  // M41: Compara data civil em Brasília sem viés de UTC
+  if (isDateBeforeTodayCivilBR(input.expirationDate)) {
     throw new Error('O alimento está com data de validade vencida. Publicação bloqueada.');
+  }
+  if (isBatchExpired(input.expirationDate, input.consumptionDeadline)) {
+    throw new Error('O horário-limite de consumo do alimento já expirou. Publicação bloqueada.');
   }
   if (!input.pickupWindowStart || !input.pickupWindowEnd) {
     throw new Error('A janela de retirada (início e término) é obrigatória.');
@@ -67,8 +77,14 @@ export async function createFoodBatch(input: CreateBatchInput): Promise<string> 
   if (durationHours > 72) {
     throw new Error('A janela de retirada não pode ultrapassar 72 horas. Ajuste a data ou o horário de término.');
   }
-  if (new Date(input.pickupWindowEnd) > new Date(input.expirationDate + 'T23:59:59')) {
-    throw new Error('O término da janela de retirada não pode ultrapassar a data de validade do alimento.');
+  // M41: Valida término da retirada contra validade e horário-limite de consumo seguro
+  const windowCheck = validatePickupWindowAgainstExpiration(
+    input.pickupWindowEnd,
+    input.expirationDate,
+    input.consumptionDeadline
+  );
+  if (!windowCheck.valid) {
+    throw new Error(windowCheck.error || 'O término da janela de retirada não pode ultrapassar a data de validade do alimento.');
   }
   if (!input.fitForConsumption) {
     throw new Error('É obrigatória a declaração explícita de que o alimento está próprio para consumo.');
@@ -94,6 +110,7 @@ export async function createFoodBatch(input: CreateBatchInput): Promise<string> 
     quantity: Number(input.quantity),
     unit: input.unit,
     expirationDate: input.expirationDate,
+    consumptionDeadline: input.consumptionDeadline || null,
     storageCondition: input.storageCondition.trim(),
     pickupAddress: input.pickupAddress.trim(),
     pickupWindowStart: input.pickupWindowStart,
@@ -162,8 +179,8 @@ export async function reserveFoodBatchAtomic(input: ReserveBatchInput): Promise<
         );
       }
 
-      // Validação de validade
-      if (new Date(batch.expirationDate).getTime() < new Date().setHours(0, 0, 0, 0)) {
+      // Validação de validade (M41)
+      if (isBatchExpired(batch.expirationDate, batch.consumptionDeadline)) {
         throw new Error('Este lote está com data de validade vencida e não pode ser reservado.');
       }
 
@@ -175,6 +192,7 @@ export async function reserveFoodBatchAtomic(input: ReserveBatchInput): Promise<
         batchQuantity: batch.quantity,
         batchUnit: batch.unit,
         expirationDate: batch.expirationDate,
+        consumptionDeadline: batch.consumptionDeadline || null,
         pickupAddress: batch.pickupAddress,
         pickupWindowStart: batch.pickupWindowStart,
         pickupWindowEnd: batch.pickupWindowEnd,
@@ -253,10 +271,10 @@ export async function cancelReservationAtomic(
         cancelReason: reason.trim() || 'Cancelamento solicitado pela entidade receptora.'
       });
 
-      // 2. Se o lote existir, verifica se ainda está na validade para voltar a DISPONÍVEL
+      // 2. Se o lote existir, verifica se ainda está na validade para voltar a DISPONÍVEL (M41)
       if (batchSnap.exists()) {
         const batch = batchSnap.data() as FoodBatch;
-        const isNotExpired = new Date(batch.expirationDate).getTime() >= new Date().setHours(0, 0, 0, 0);
+        const isNotExpired = !isBatchExpired(batch.expirationDate, batch.consumptionDeadline);
 
         transaction.update(batchRef, {
           status: isNotExpired ? 'DISPONIVEL' : 'EXPIRADO',
@@ -310,10 +328,10 @@ export async function decideReservationAtomic(
         decisionNotes: notes.trim() || (decision === 'APROVADA' ? 'Reserva homologada pelo administrador.' : 'Solicitação indeferida.')
       });
 
-      // 2. Se for rejeitada, libera o lote se ainda estiver dentro da validade
+      // 2. Se for rejeitada, libera o lote se ainda estiver dentro da validade (M41)
       if (decision === 'REJEITADA' && batchSnap.exists()) {
         const batch = batchSnap.data() as FoodBatch;
-        const isNotExpired = new Date(batch.expirationDate).getTime() >= new Date().setHours(0, 0, 0, 0);
+        const isNotExpired = !isBatchExpired(batch.expirationDate, batch.consumptionDeadline);
 
         transaction.update(batchRef, {
           status: isNotExpired ? 'DISPONIVEL' : 'EXPIRADO',

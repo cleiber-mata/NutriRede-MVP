@@ -20,7 +20,7 @@ import { db } from '../firebase/config';
 import { useAuth } from '../context/AuthContext';
 import { FoodBatch, FoodCategory } from '../types';
 import { reserveFoodBatchAtomic } from '../services/foodBatchService';
-import { formatDateBR, formatDateTimeBR } from '../utils/dateUtils';
+import { formatDateBR, formatDateTimeBR, isBatchExpired } from '../utils/dateUtils';
 
 interface ReceiverExploreViewProps {
   onGoToReservations: () => void;
@@ -64,15 +64,14 @@ export const ReceiverExploreView: React.FC<ReceiverExploreViewProps> = ({
       q,
       (snapshot) => {
         const list: FoodBatch[] = [];
-        const todayZero = new Date().setHours(0, 0, 0, 0);
 
         snapshot.forEach((docItem) => {
           const batch = docItem.data() as FoodBatch;
-          // Filtra somente lotes aptos e não vencidos, e oculta doações publicadas pela própria conta (CORREÇÃO 1)
-          const expTime = new Date(batch.expirationDate).getTime();
+          // M41: Filtra somente lotes aptos e não vencidos usando calendário de Brasília e horário-limite seguro
+          const isExpired = isBatchExpired(batch.expirationDate, batch.consumptionDeadline);
           const isOwnBatch = currentUser && batch.donorId === currentUser.uid;
 
-          if (expTime >= todayZero && !batch.activeReservationId && !isOwnBatch) {
+          if (!isExpired && !batch.activeReservationId && !isOwnBatch) {
             list.push(batch);
           }
         });

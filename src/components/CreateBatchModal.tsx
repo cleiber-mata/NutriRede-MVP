@@ -14,6 +14,12 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { BatchUnit, FoodCategory } from '../types';
 import { createFoodBatch } from '../services/foodBatchService';
+import {
+  getTodayCivilDateBR,
+  validatePickupWindowAgainstExpiration,
+  isDateBeforeTodayCivilBR,
+  isBatchExpired
+} from '../utils/dateUtils';
 
 interface CreateBatchModalProps {
   isOpen: boolean;
@@ -44,6 +50,7 @@ export const CreateBatchModal: React.FC<CreateBatchModalProps> = ({
   const [quantity, setQuantity] = useState<number | ''>('');
   const [unit, setUnit] = useState<BatchUnit>('kg');
   const [expirationDate, setExpirationDate] = useState('');
+  const [consumptionDeadline, setConsumptionDeadline] = useState('');
   const [storageCondition, setStorageCondition] = useState('Refrigerado (4°C a 8°C)');
   const [pickupAddress, setPickupAddress] = useState('');
   const [pickupWindowStart, setPickupWindowStart] = useState('');
@@ -56,8 +63,8 @@ export const CreateBatchModal: React.FC<CreateBatchModalProps> = ({
 
   if (!isOpen) return null;
 
-  // Data mínima: hoje
-  const todayStr = new Date().toISOString().split('T')[0];
+  // Data mínima civil de hoje em Brasília (M41)
+  const todayStr = getTodayCivilDateBR();
 
   const handleStartChange = (val: string) => {
     setPickupWindowStart(val);
@@ -116,8 +123,29 @@ export const CreateBatchModal: React.FC<CreateBatchModalProps> = ({
       return;
     }
 
-    if (new Date(pickupWindowEnd) > new Date(expirationDate + 'T23:59:59')) {
-      setErrorMsg('A janela de retirada deve terminar antes da data de validade do alimento.');
+    // Validação M41: Alimentos preparados exigem horário-limite de consumo seguro explícito
+    if (category === 'Refeições Preparadas' && !consumptionDeadline) {
+      setErrorMsg('Para refeições preparadas (ex: marmitas), é obrigatório informar o horário-limite de consumo seguro.');
+      return;
+    }
+
+    if (isDateBeforeTodayCivilBR(expirationDate)) {
+      setErrorMsg('A data de validade não pode ser anterior à data de hoje.');
+      return;
+    }
+
+    if (isBatchExpired(expirationDate, consumptionDeadline)) {
+      setErrorMsg('O horário-limite de consumo seguro deste alimento já expirou no dia de hoje.');
+      return;
+    }
+
+    const windowCheck = validatePickupWindowAgainstExpiration(
+      pickupWindowEnd,
+      expirationDate,
+      consumptionDeadline
+    );
+    if (!windowCheck.valid) {
+      setErrorMsg(windowCheck.error || 'A janela de retirada não pode ultrapassar o limite de validade.');
       return;
     }
 
@@ -130,6 +158,7 @@ export const CreateBatchModal: React.FC<CreateBatchModalProps> = ({
         quantity: Number(quantity),
         unit,
         expirationDate,
+        consumptionDeadline: consumptionDeadline || null,
         storageCondition,
         pickupAddress,
         pickupWindowStart,
@@ -157,6 +186,7 @@ export const CreateBatchModal: React.FC<CreateBatchModalProps> = ({
     setQuantity('');
     setUnit('kg');
     setExpirationDate('');
+    setConsumptionDeadline('');
     setStorageCondition('Refrigerado (4°C a 8°C)');
     setPickupAddress('');
     setPickupWindowStart('');
@@ -316,6 +346,26 @@ export const CreateBatchModal: React.FC<CreateBatchModalProps> = ({
                   />
                 </div>
               </div>
+
+              {/* Campo Específico M41: Horário-Limite para Refeições Preparadas / Marmitas */}
+              {category === 'Refeições Preparadas' && (
+                <div className="p-3.5 bg-amber-50 rounded-2xl border border-amber-200 space-y-1.5 animate-in fade-in duration-150">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-amber-900">
+                    <Clock className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                    <span>Horário-Limite para Consumo Seguro (Marmitas / Refeições) <span className="text-rose-500">*</span></span>
+                  </div>
+                  <p className="text-[11px] text-amber-800 leading-tight">
+                    Para refeições preparadas, informe até que horário o alimento pode ser consumido com segurança sanitária. O término da janela de retirada deverá encerrar antes deste horário.
+                  </p>
+                  <input
+                    type="time"
+                    required
+                    value={consumptionDeadline}
+                    onChange={(e) => setConsumptionDeadline(e.target.value)}
+                    className="w-full sm:w-44 px-3 py-2 text-xs rounded-xl border border-amber-300 focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white font-semibold text-stone-900"
+                  />
+                </div>
+              )}
 
               {/* Linha 3: Condições de Conservação */}
               <div>

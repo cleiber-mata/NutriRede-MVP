@@ -23,6 +23,7 @@ import {
   Reservation,
   UserProfileDoc
 } from '../types';
+import { isBatchExpired } from '../utils/dateUtils';
 
 /**
  * RF09 — Consultar disponibilidade do perfil de Transportador
@@ -145,8 +146,8 @@ export async function acceptPickupAtomic(params: AcceptPickupParams): Promise<st
         throw new Error('O lote já possui uma coleta ativa vinculada.');
       }
 
-      // Validação de validade
-      if (new Date(batch.expirationDate).getTime() < new Date().setHours(0, 0, 0, 0)) {
+      // Validação de validade (M41)
+      if (isBatchExpired(batch.expirationDate, batch.consumptionDeadline)) {
         throw new Error('O alimento ultrapassou a data de validade. Coleta não permitida.');
       }
 

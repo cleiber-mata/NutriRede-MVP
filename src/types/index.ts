@@ -113,6 +113,7 @@ export interface FoodBatch {
   quantity: number;
   unit: BatchUnit;
   expirationDate: string; // yyyy-mm-dd ou ISO
+  consumptionDeadline?: string | null; // HH:mm ou ISO para refeições preparadas / perecíveis (M41)
   storageCondition: string;
   pickupAddress: string;
   pickupWindowStart: string; // ISO
@@ -140,6 +141,7 @@ export interface Reservation {
   batchQuantity: number;
   batchUnit: string;
   expirationDate: string;
+  consumptionDeadline?: string | null;
   pickupAddress: string;
   pickupWindowStart: string;
   pickupWindowEnd: string;

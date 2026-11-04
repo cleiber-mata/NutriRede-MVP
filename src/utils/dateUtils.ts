@@ -145,3 +145,139 @@ export function formatPickupWindowBR(
     end: formatDateTimeBR(endStr)
   };
 }
+
+/**
+ * Retorna a data civil atual de Brasília no formato YYYY-MM-DD.
+ * Garante que a data civil de Brasília seja respeitada independentemente do fuso do navegador ou servidor.
+ */
+export function getTodayCivilDateBR(refDate: Date = new Date()): string {
+  const parts = new Intl.DateTimeFormat('pt-BR', {
+    timeZone: SP_TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).formatToParts(refDate);
+
+  const year = parts.find((p) => p.type === 'year')?.value;
+  const month = parts.find((p) => p.type === 'month')?.value;
+  const day = parts.find((p) => p.type === 'day')?.value;
+
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * Retorna o horário civil atual de Brasília no formato HH:mm (24h).
+ */
+export function getCurrentTimeBR(refDate: Date = new Date()): string {
+  const parts = new Intl.DateTimeFormat('pt-BR', {
+    timeZone: SP_TIMEZONE,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  }).formatToParts(refDate);
+
+  const hour = parts.find((p) => p.type === 'hour')?.value || '00';
+  const minute = parts.find((p) => p.type === 'minute')?.value || '00';
+
+  return `${hour}:${minute}`;
+}
+
+/**
+ * Verifica se a data civil de validade é estritamente anterior à data de hoje em Brasília (M41).
+ * Comparações YYYY-MM-DD lexicais puras:
+ * - Se validade for "2026-11-04" e hoje for "2026-11-04": retorna FALSE (não está vencido por ser hoje).
+ * - Se validade for "2026-11-03" e hoje for "2026-11-04": retorna TRUE (vencido ontem).
+ * - Se validade for "2026-11-05" e hoje for "2026-11-04": retorna FALSE (futuro).
+ */
+export function isDateBeforeTodayCivilBR(expirationDateStr?: string | null, refDate: Date = new Date()): boolean {
+  if (!expirationDateStr) return true;
+  const cleanExp = expirationDateStr.trim().split('T')[0];
+  const todayBR = getTodayCivilDateBR(refDate);
+  return cleanExp < todayBR;
+}
+
+/**
+ * Avalia se o lote está vencido no momento atual (considerando data civil e horário-limite de consumo).
+ * Para refeições preparadas (marmitas), verifica também o horário-limite explícito no dia de hoje.
+ */
+export function isBatchExpired(
+  expirationDateStr?: string | null,
+  consumptionDeadline?: string | null,
+  refDate: Date = new Date()
+): boolean {
+  if (!expirationDateStr) return true;
+  const cleanExp = expirationDateStr.trim().split('T')[0];
+  const todayBR = getTodayCivilDateBR(refDate);
+
+  if (cleanExp < todayBR) {
+    return true; // Venceu em dia anterior
+  }
+
+  if (cleanExp > todayBR) {
+    return false; // Válido para dia futuro
+  }
+
+  // Se a validade é hoje:
+  if (consumptionDeadline && consumptionDeadline.trim()) {
+    const cleanDeadline = consumptionDeadline.trim();
+    const deadlineTime = cleanDeadline.includes('T')
+      ? cleanDeadline.split('T')[1].slice(0, 5)
+      : cleanDeadline.slice(0, 5);
+
+    const currentTimeBR = getCurrentTimeBR(refDate);
+    // Se o horário de consumo já passou no fuso de Brasília
+    return currentTimeBR > deadlineTime;
+  }
+
+  // Sem horário-limite explícito, alimento válido ao longo do dia civil de hoje
+  return false;
+}
+
+/**
+ * Valida a janela operacional de retirada contra o limite de validade e consumo seguro (M41).
+ * Garante que:
+ * 1. O término da retirada não exceda a data de validade.
+ * 2. Se houver horário-limite de consumo informado (ex: marmitas até 13h), a retirada termine antes dele.
+ */
+export function validatePickupWindowAgainstExpiration(
+  pickupWindowEnd?: string | null,
+  expirationDateStr?: string | null,
+  consumptionDeadline?: string | null
+): { valid: boolean; error?: string } {
+  if (!pickupWindowEnd || !expirationDateStr) {
+    return { valid: false, error: 'Datas da janela e validade são obrigatórias.' };
+  }
+
+  const cleanExp = expirationDateStr.trim().split('T')[0];
+  const cleanEnd = pickupWindowEnd.trim();
+  const endDatePart = cleanEnd.split('T')[0];
+
+  // 1. A retirada não pode terminar em dia posterior à validade
+  if (endDatePart > cleanExp) {
+    return {
+      valid: false,
+      error: 'O término da janela de retirada não pode ultrapassar a data de validade do alimento.'
+    };
+  }
+
+  // 2. Se houver horário-limite de consumo seguro (ex: marmita às 13h)
+  if (consumptionDeadline && consumptionDeadline.trim()) {
+    const cleanDeadline = consumptionDeadline.trim();
+    const deadlineTime = cleanDeadline.includes('T')
+      ? cleanDeadline.split('T')[1].slice(0, 5)
+      : cleanDeadline.slice(0, 5);
+
+    const deadlineISO = `${cleanExp}T${deadlineTime}`;
+    const endTimeNormalized = cleanEnd.slice(0, 16);
+
+    if (endTimeNormalized > deadlineISO) {
+      const formattedLimit = deadlineTime.replace(':', 'h');
+      return {
+        valid: false,
+        error: `A janela de retirada não pode ultrapassar o horário-limite de consumo seguro (${formattedLimit}). Ajuste o término da retirada.`
+      };
+    }
+  }
+
+  return { valid: true };
+}
