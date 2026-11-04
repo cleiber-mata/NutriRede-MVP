@@ -13,17 +13,27 @@ import { AcademicCompliance } from './components/AcademicCompliance';
 import { RegisterModal } from './components/RegisterModal';
 import { LoginModal } from './components/LoginModal';
 import { RequestProfileModal } from './components/RequestProfileModal';
+import { InitialProfileSetupModal } from './components/InitialProfileSetupModal';
 import { Footer } from './components/Footer';
 
 function MainApp() {
-  const { currentUser, isAdmin, isLoading } = useAuth();
+  const { currentUser, isAdmin, isLoading, userProfiles } = useAuth();
 
   const [currentView, setCurrentView] = useState<'home' | 'dashboard' | 'admin' | 'academic'>('home');
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [isRegisterOpen, setIsRegisterOpen] = useState(false);
   const [isRequestProfileOpen, setIsRequestProfileOpen] = useState(false);
+  const [isInitialSetupOpen, setIsInitialSetupOpen] = useState(false);
+  const [hasDismissedInitialSetup, setHasDismissedInitialSetup] = useState(false);
 
-  // Se o usuário logar e estiver na home, pode transitar para o dashboard se preferir
+  // Monitora se o usuário autenticado não possui nenhum perfil cadastrado (ex: primeiro acesso Google)
+  React.useEffect(() => {
+    if (currentUser && !isLoading && userProfiles && userProfiles.length === 0 && !hasDismissedInitialSetup) {
+      setIsInitialSetupOpen(true);
+    }
+  }, [currentUser, isLoading, userProfiles, hasDismissedInitialSetup]);
+
+  // Se o usuário logar e estiver na home, transita para o dashboard
   const handleLoginSuccess = () => {
     setCurrentView('dashboard');
   };
@@ -74,6 +84,7 @@ function MainApp() {
               <UserProfileDashboard
                 onOpenRequestProfile={() => setIsRequestProfileOpen(true)}
                 onOpenAdmin={() => setCurrentView('admin')}
+                onOpenInitialProfileSetup={() => setIsInitialSetupOpen(true)}
               />
             )}
 
@@ -98,7 +109,7 @@ function MainApp() {
         onOpenAcademic={() => setCurrentView('academic')}
       />
 
-      {/* Modais de Cadastro, Login e Solicitação de Perfil */}
+      {/* Modais de Cadastro, Login, Solicitação de Perfil e Onboarding Google */}
       <RegisterModal
         isOpen={isRegisterOpen}
         onClose={() => setIsRegisterOpen(false)}
@@ -122,6 +133,18 @@ function MainApp() {
       <RequestProfileModal
         isOpen={isRequestProfileOpen}
         onClose={() => setIsRequestProfileOpen(false)}
+      />
+
+      <InitialProfileSetupModal
+        isOpen={isInitialSetupOpen}
+        onClose={() => {
+          setIsInitialSetupOpen(false);
+          setHasDismissedInitialSetup(true);
+        }}
+        onSuccess={() => {
+          setIsInitialSetupOpen(false);
+          setCurrentView('dashboard');
+        }}
       />
     </div>
   );

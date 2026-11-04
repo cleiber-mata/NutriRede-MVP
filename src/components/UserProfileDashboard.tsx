@@ -45,11 +45,13 @@ import { formatDateBR, formatDateTimeBR } from '../utils/dateUtils';
 interface UserProfileDashboardProps {
   onOpenRequestProfile: () => void;
   onOpenAdmin: () => void;
+  onOpenInitialProfileSetup?: () => void;
 }
 
 export const UserProfileDashboard: React.FC<UserProfileDashboardProps> = ({
   onOpenRequestProfile,
   onOpenAdmin,
+  onOpenInitialProfileSetup,
 }) => {
   const {
     currentUser,
@@ -274,8 +276,33 @@ export const UserProfileDashboard: React.FC<UserProfileDashboardProps> = ({
         </div>
 
         {/* Grade de Perfis */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          {userProfiles.map((profile) => {
+        {userProfiles.length === 0 ? (
+          <div className="bg-amber-50/70 border-2 border-dashed border-amber-300 rounded-3xl p-8 text-center space-y-3">
+            <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center mx-auto">
+              <ShieldAlert className="w-6 h-6" />
+            </div>
+            <h3 className="text-lg font-bold text-amber-950 font-serif">
+              Nenhum perfil de atuação selecionado ainda
+            </h3>
+            <p className="text-xs sm:text-sm text-amber-800 max-w-lg mx-auto leading-relaxed">
+              Sua conta Google está autenticada, mas você ainda não definiu seus papéis no NutriRede.
+              Selecione pelo menos um perfil (Doador, Entidade Receptora ou Transportador) para encaminhar seu cadastro para homologação (RF03).
+            </p>
+            {onOpenInitialProfileSetup && (
+              <div className="pt-2">
+                <button
+                  onClick={onOpenInitialProfileSetup}
+                  className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow-md transition-colors inline-flex items-center gap-2"
+                >
+                  <PlusCircle className="w-4 h-4" />
+                  Definir Meus Perfis de Atuação Agora
+                </button>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {userProfiles.map((profile) => {
             const meta = PROFILE_DEFINITIONS[profile.profileType];
             const statusConfig = STATUS_CONFIG[profile.status];
             const isActive = activeProfile?.id === profile.id;
@@ -408,7 +435,8 @@ export const UserProfileDashboard: React.FC<UserProfileDashboardProps> = ({
               </div>
             );
           })}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* Detalhe do Ambiente do Perfil Ativo */}

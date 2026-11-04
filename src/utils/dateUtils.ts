@@ -1,12 +1,14 @@
 /**
  * Utilitários de Formatação de Data e Horário — NutriRede
- * Formatação brasileira oficial (pt-BR) com prevenção estrita de desvio de fuso horário
- * e correção definitiva de inversão mês/dia (M20/M21).
+ * Formatação brasileira oficial (pt-BR) com fuso de Brasília (America/Sao_Paulo),
+ * prevenindo categoricamente a inversão de dia/mês (M20/M21) e desvios de fuso horário.
  */
 
+const SP_TIMEZONE = 'America/Sao_Paulo';
+
 /**
- * Converte data simples (YYYY-MM-DD), data brasileira (DD/MM/AAAA) ou timestamp ISO para DD/MM/AAAA
- * Previne inversão de mês/dia (ex: 03/11/2026 virar 11/03/2026) e desvio de fuso horário em datas puras.
+ * Converte data simples (YYYY-MM-DD), data brasileira (DD/MM/AAAA) ou timestamp ISO para DD/MM/AAAA.
+ * Previne estritamente a inversão de mês/dia (ex: 03/11/2026 virar 11/03/2026) e desvios de fuso.
  */
 export function formatDateBR(dateStr?: string | null): string {
   if (!dateStr) return '-';
@@ -19,31 +21,43 @@ export function formatDateBR(dateStr?: string | null): string {
     return `${day}/${month}/${year}`;
   }
 
-  // 2. Data pura ISO (YYYY-MM-DD) ou datetime sem timezone UTC explícito
-  const isoMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (isoMatch) {
-    const [, year, month, day] = isoMatch;
-    // Se for data pura (sem hora) ou com T00:00:00, preserva diretamente os dias digitados
-    if (!trimmed.includes('T') || trimmed.includes('T00:00:00')) {
-      return `${day}/${month}/${year}`;
-    }
+  // 2. Data pura ISO (YYYY-MM-DD) ou datetime sem timezone UTC explícito (evita desvio de meia-noite)
+  const isoDateMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})(?:T.*)?$/);
+  if (isoDateMatch && (!trimmed.includes('T') || !trimmed.endsWith('Z'))) {
+    const [, year, month, day] = isoDateMatch;
+    return `${day}/${month}/${year}`;
   }
 
-  // 3. Fallback para Date com fuso local
-  const date = new Date(trimmed);
-  if (isNaN(date.getTime())) return trimmed;
+  // 3. Timestamps ISO com timezone (ex: 2026-11-03T18:00:00.000Z) -> Converte no fuso de Brasília
+  try {
+    const date = new Date(trimmed);
+    if (!isNaN(date.getTime())) {
+      const parts = new Intl.DateTimeFormat('pt-BR', {
+        timeZone: SP_TIMEZONE,
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      }).formatToParts(date);
 
-  const day = String(date.getDate()).padStart(2, '0');
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const year = date.getFullYear();
+      const day = parts.find((p) => p.type === 'day')?.value;
+      const month = parts.find((p) => p.type === 'month')?.value;
+      const year = parts.find((p) => p.type === 'year')?.value;
 
-  return `${day}/${month}/${year}`;
+      if (day && month && year) {
+        return `${day}/${month}/${year}`;
+      }
+    }
+  } catch {
+    // Fallback defensivo
+  }
+
+  return trimmed;
 }
 
 /**
  * Converte strings de data/hora (inclusive ISO e datetime-local)
  * para o formato oficial: DD/MM/AAAA às HH:mm (24 horas)
- * Previne inversão mês/dia e preserva horários locais.
+ * Previne estritamente a inversão de mês/dia e desvios de fuso.
  */
 export function formatDateTimeBR(dateStr?: string | null): string {
   if (!dateStr) return '-';
@@ -63,6 +77,13 @@ export function formatDateTimeBR(dateStr?: string | null): string {
     return `${day}/${month}/${year}`;
   }
 
+  // Se for apenas data pura ISO YYYY-MM-DD
+  const isoDateOnlyMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (isoDateOnlyMatch) {
+    const [, year, month, day] = isoDateOnlyMatch;
+    return `${day}/${month}/${year}`;
+  }
+
   // 2. Trata formato datetime-local direto (YYYY-MM-DDTHH:mm) preservando horário exato digitado
   const localMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
   if (localMatch && !trimmed.endsWith('Z') && !trimmed.includes('+') && !trimmed.match(/-\d{2}:\d{2}$/)) {
@@ -70,17 +91,35 @@ export function formatDateTimeBR(dateStr?: string | null): string {
     return `${day}/${month}/${year} às ${hour}h${minute}`;
   }
 
-  // 3. Timestamps ISO com timezone (ex: 2026-11-03T18:00:00.000Z)
-  const date = new Date(trimmed);
-  if (isNaN(date.getTime())) return trimmed;
+  // 3. Timestamps ISO com timezone (ex: 2026-11-03T18:00:00.000Z ou decidedAt) -> Brasília (America/Sao_Paulo)
+  try {
+    const date = new Date(trimmed);
+    if (!isNaN(date.getTime())) {
+      const parts = new Intl.DateTimeFormat('pt-BR', {
+        timeZone: SP_TIMEZONE,
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      }).formatToParts(date);
 
-  const day = String(date.getDate()).padStart(2, '0');
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const year = date.getFullYear();
-  const hour = String(date.getHours()).padStart(2, '0');
-  const minute = String(date.getMinutes()).padStart(2, '0');
+      const day = parts.find((p) => p.type === 'day')?.value;
+      const month = parts.find((p) => p.type === 'month')?.value;
+      const year = parts.find((p) => p.type === 'year')?.value;
+      const hour = parts.find((p) => p.type === 'hour')?.value;
+      const minute = parts.find((p) => p.type === 'minute')?.value;
 
-  return `${day}/${month}/${year} às ${hour}h${minute}`;
+      if (day && month && year && hour && minute) {
+        return `${day}/${month}/${year} às ${hour}h${minute}`;
+      }
+    }
+  } catch {
+    // Fallback defensivo
+  }
+
+  return trimmed;
 }
 
 /**
