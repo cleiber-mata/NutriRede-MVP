@@ -152,7 +152,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Monitora em tempo real os perfis do usuário atual
   useEffect(() => {
-    if (!currentUser) return;
+    if (!currentUser) {
+      setIsProfilesLoaded(true);
+      return;
+    }
+
+    setIsProfilesLoaded(false);
 
     const profilesQuery = query(
       collection(db, 'profiles'),
@@ -170,6 +175,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Ordena por tipo
         loadedProfiles.sort((a, b) => a.profileType.localeCompare(b.profileType));
         setUserProfiles(loadedProfiles);
+        setIsProfilesLoaded(true);
 
         // Atualiza ou seleciona o perfil ativo
         setActiveProfile((prev) => {
@@ -182,6 +188,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
       },
       (error) => {
+        setIsProfilesLoaded(true);
         handleFirestoreError(error, OperationType.LIST, 'profiles');
       }
     );
@@ -262,6 +269,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         adminRole,
         systemConfig,
         isLoading,
+        isProfilesLoaded,
         error,
         setActiveProfile,
         switchActiveProfileType,

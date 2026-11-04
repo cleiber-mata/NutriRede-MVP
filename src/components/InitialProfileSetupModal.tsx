@@ -12,7 +12,7 @@ import {
   Clock,
   ShieldAlert
 } from 'lucide-react';
-import { doc, setDoc, updateDoc } from 'firebase/firestore';
+import { doc, runTransaction } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from '../context/AuthContext';
 import { ProfileType, UserProfileDoc } from '../types';
@@ -78,33 +78,60 @@ export const InitialProfileSetupModal: React.FC<InitialProfileSetupModalProps> =
     try {
       const now = new Date().toISOString();
 
-      // 1. Atualiza dados cadastrais em /users/{uid} preservando o e-mail Google
-      const userRef = doc(db, 'users', currentUser.uid);
-      await updateDoc(userRef, {
-        name: name.trim(),
-        phone: phone.trim() || null,
-        address: address.trim() || null,
-        updatedAt: now
+      await runTransaction(db, async (transaction) => {
+        // 1. LEITURA PRÉVIA OBRIGATÓRIA (Regra Firestore: todas as leituras antes de qualquer escrita)
+        const userRef = doc(db, 'users', currentUser.uid);
+        const userSnap = await transaction.get(userRef);
+
+        const profileDocsToProcess = await Promise.all(
+          activeTypes.map(async (pType) => {
+            const pRef = doc(db, 'profiles', `${currentUser.uid}_${pType}`);
+            const pSnap = await transaction.get(pRef);
+            return { pType, pRef, pSnap };
+          })
+        );
+
+        // 2. ESCRITAS ATÔMICAS
+        // 2.1 Atualiza ou cria a conta do usuário em /users/{uid} preservando o e-mail Google
+        if (userSnap.exists()) {
+          transaction.update(userRef, {
+            name: name.trim(),
+            phone: phone.trim() || null,
+            address: address.trim() || null,
+            updatedAt: now
+          });
+        } else {
+          transaction.set(userRef, {
+            uid: currentUser.uid,
+            name: name.trim(),
+            email: currentUser.email || '',
+            phone: phone.trim() || undefined,
+            address: address.trim() || undefined,
+            createdAt: now,
+            accountStatus: 'ACTIVE'
+          });
+        }
+
+        // 2.2 Grava cada perfil selecionado APENAS se ainda não existir
+        // NUNCA sobrescreve perfis já existentes nem suas aprovações ou dados históricos
+        for (const { pType, pRef, pSnap } of profileDocsToProcess) {
+          if (!pSnap.exists()) {
+            const profileDoc: UserProfileDoc = {
+              id: pRef.id,
+              userId: currentUser.uid,
+              userName: name.trim(),
+              userEmail: currentUser.email || '',
+              userPhone: phone.trim() || '',
+              profileType: pType,
+              status: 'PENDENTE',
+              requestedAt: now,
+              decidedAt: null,
+              decidedBy: null
+            };
+            transaction.set(pRef, profileDoc);
+          }
+        }
       });
-
-      // 2. Grava cada perfil selecionado com status PENDENTE em /profiles/{uid}_{type} (RF01/RF03)
-      for (const pType of activeTypes) {
-        const profileId = `${currentUser.uid}_${pType}`;
-        const profileDoc: UserProfileDoc = {
-          id: profileId,
-          userId: currentUser.uid,
-          userName: name.trim(),
-          userEmail: currentUser.email || '',
-          userPhone: phone.trim() || '',
-          profileType: pType,
-          status: 'PENDENTE',
-          requestedAt: now,
-          decidedAt: null,
-          decidedBy: null
-        };
-
-        await setDoc(doc(db, 'profiles', profileId), profileDoc);
-      }
 
       await reloadUserData();
       setIsCompleted(true);

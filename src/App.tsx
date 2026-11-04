@@ -17,7 +17,7 @@ import { InitialProfileSetupModal } from './components/InitialProfileSetupModal'
 import { Footer } from './components/Footer';
 
 function MainApp() {
-  const { currentUser, isAdmin, isLoading, userProfiles } = useAuth();
+  const { currentUser, isAdmin, isLoading, userProfiles, isProfilesLoaded } = useAuth();
 
   const [currentView, setCurrentView] = useState<'home' | 'dashboard' | 'admin' | 'academic'>('home');
   const [isLoginOpen, setIsLoginOpen] = useState(false);
@@ -27,11 +27,20 @@ function MainApp() {
   const [hasDismissedInitialSetup, setHasDismissedInitialSetup] = useState(false);
 
   // Monitora se o usuário autenticado não possui nenhum perfil cadastrado (ex: primeiro acesso Google)
+  // O onboarding só é disparado APÓS a confirmação de que os perfis foram efetivamente carregados do Firestore,
+  // evitando confundir o estado transitório de carregamento inicial com a ausência definitiva de perfis.
   React.useEffect(() => {
-    if (currentUser && !isLoading && userProfiles && userProfiles.length === 0 && !hasDismissedInitialSetup) {
+    if (
+      currentUser &&
+      !isLoading &&
+      isProfilesLoaded &&
+      userProfiles &&
+      userProfiles.length === 0 &&
+      !hasDismissedInitialSetup
+    ) {
       setIsInitialSetupOpen(true);
     }
-  }, [currentUser, isLoading, userProfiles, hasDismissedInitialSetup]);
+  }, [currentUser, isLoading, isProfilesLoaded, userProfiles, hasDismissedInitialSetup]);
 
   // Se o usuário logar e estiver na home, transita para o dashboard
   const handleLoginSuccess = () => {
