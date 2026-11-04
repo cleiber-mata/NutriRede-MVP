@@ -659,7 +659,7 @@ export const AdminUserActivityModal: React.FC<AdminUserActivityModalProps> = ({
                     Histórico de Transportes e Rotas (Ciclo 3)
                   </h4>
                   <p className="text-xs text-amber-900 max-w-lg mx-auto leading-relaxed">
-                    As operações físicas de <strong>Mural de Rotas, Aceite de Transporte, Coleta e Confirmação de Entrega (RF09 a RF13)</strong> pertencem ao <strong>Ciclo 3</strong>.
+                    As operações físicas de <strong>Mural de Rotas, Aceite de Transporte, Coleta e Confirmação de Entrega</strong> pertencem ao <strong>Ciclo 3</strong>.
                   </p>
                   <div className="p-3 bg-white/80 rounded-xl text-left text-xs text-amber-800 border border-amber-200 max-w-md mx-auto space-y-1">
                     <div className="font-semibold flex items-center gap-1">

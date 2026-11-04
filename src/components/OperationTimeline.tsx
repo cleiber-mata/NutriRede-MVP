@@ -100,8 +100,12 @@ export const OperationTimeline: React.FC<OperationTimelineProps> = ({
     },
     {
       number: 3,
-      title: 'Reserva Aprovada',
-      description: 'Homologada pelo administrador',
+      title: isApproved ? 'Reserva Aprovada' : 'Aprovação da Reserva',
+      description: isApproved
+        ? 'Homologada pelo administrador'
+        : currentStepNumber === 3
+        ? 'Aguardando aprovação do administrador'
+        : 'Homologação administrativa',
       isCompleted: isApproved,
       isCurrent: currentStepNumber === 3,
       date: step3Date,
@@ -110,8 +114,12 @@ export const OperationTimeline: React.FC<OperationTimelineProps> = ({
     },
     {
       number: 4,
-      title: 'Coleta Aceita',
-      description: 'Transportador atribuído',
+      title: isPickupAccepted ? 'Coleta Aceita' : 'Aceite da Coleta',
+      description: isPickupAccepted
+        ? 'Transportador atribuído'
+        : currentStepNumber === 4
+        ? 'Aguardando transportador voluntário'
+        : 'Atribuição de transportador',
       isCompleted: isPickupAccepted,
       isCurrent: currentStepNumber === 4,
       date: step4Date,
@@ -121,7 +129,11 @@ export const OperationTimeline: React.FC<OperationTimelineProps> = ({
     {
       number: 5,
       title: 'Retirada dos Alimentos',
-      description: 'Lote em trânsito (EM_TRANSPORTE)',
+      description: isPickedUp
+        ? 'Lote em trânsito para entrega'
+        : currentStepNumber === 5
+        ? 'Aguardando retirada no local pelo transportador'
+        : 'Retirada no local do doador',
       isCompleted: isPickedUp,
       isCurrent: currentStepNumber === 5,
       date: step5Date,
@@ -130,8 +142,12 @@ export const OperationTimeline: React.FC<OperationTimelineProps> = ({
     },
     {
       number: 6,
-      title: 'Recebimento Confirmado (RN08)',
-      description: 'Entrega finalizada (CONCLUIDO)',
+      title: isConcluded ? 'Recebimento Confirmado' : 'Confirmação de Recebimento',
+      description: isConcluded
+        ? 'Doação finalizada com sucesso'
+        : currentStepNumber === 6
+        ? 'Aguardando conferência e recebimento no destino'
+        : 'Recebimento pela entidade',
       isCompleted: isConcluded,
       isCurrent: currentStepNumber === 6,
       date: step6Date,
@@ -145,7 +161,7 @@ export const OperationTimeline: React.FC<OperationTimelineProps> = ({
       <div className="flex items-center justify-between mb-4 pb-2 border-b border-stone-200">
         <h4 className="text-xs font-bold uppercase tracking-wider text-stone-600 flex items-center gap-1.5">
           <Clock className="w-3.5 h-3.5 text-stone-500" />
-          Acompanhamento Operacional da Doação (RF13)
+          Acompanhamento Operacional da Doação
         </h4>
         <span
           className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${
@@ -163,7 +179,7 @@ export const OperationTimeline: React.FC<OperationTimelineProps> = ({
           }`}
         >
           {isConcluded
-            ? 'Doação Concluída com Sucesso (RN08)'
+            ? 'Doação Concluída com Sucesso'
             : batch.status === 'EM_TRANSPORTE'
             ? 'Em Transporte para Entrega'
             : batch.status === 'RESERVADO'

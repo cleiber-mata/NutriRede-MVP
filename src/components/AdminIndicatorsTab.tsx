@@ -112,9 +112,9 @@ export const AdminIndicatorsTab: React.FC = () => {
               </span>
               <span className="text-xs text-stone-400">• Sem métricas fictícias</span>
             </div>
-            <h2 className="text-2xl font-bold font-serif">Indicadores Administrativos (RF16)</h2>
+            <h2 className="text-2xl font-bold font-serif">Indicadores Administrativos</h2>
             <p className="text-xs sm:text-sm text-stone-300 mt-1 max-w-2xl leading-relaxed">
-              Painel gerencial de acompanhamento de impacto social e conformidade operacional. Em conformidade com a <strong>Regra RN08</strong>, somente doações com recebimento confirmado pela entidade receptora são computadas como concluídas.
+              Painel gerencial de acompanhamento de impacto social e conformidade operacional. Somente doações com recebimento confirmado pela entidade receptora são computadas como concluídas.
             </p>
           </div>
         </div>
@@ -125,7 +125,7 @@ export const AdminIndicatorsTab: React.FC = () => {
         <div>
           <h3 className="text-base font-bold text-stone-900 font-serif flex items-center gap-2">
             <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-            Impacto Social Efetivo — Doações Concluídas (RN08)
+            Impacto Social Efetivo — Doações Concluídas
           </h3>
           <p className="text-xs text-stone-500 mt-1">
             Contabilização estrita de lotes entregues e confirmados pela entidade receptora no destino final.

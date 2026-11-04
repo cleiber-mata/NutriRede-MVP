@@ -143,7 +143,7 @@ export const ReceiverExploreView: React.FC<ReceiverExploreViewProps> = ({
         <div>
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-teal-500/20 text-teal-200 border border-teal-400/30 text-xs font-semibold mb-3">
             <Building2 className="w-3.5 h-3.5" />
-            Módulo Operacional da Entidade Receptora (RF05 / RF06)
+            Módulo Operacional da Entidade Receptora
           </div>
           <h2 className="text-2xl sm:text-3xl font-bold font-serif">Ofertas de Alimentos Disponíveis</h2>
           <p className="text-teal-100/80 text-xs sm:text-sm mt-1 max-w-xl leading-relaxed">
@@ -323,7 +323,7 @@ export const ReceiverExploreView: React.FC<ReceiverExploreViewProps> = ({
                     }}
                     className="w-full py-2.5 px-4 rounded-xl bg-teal-700 hover:bg-teal-800 text-white font-semibold text-xs shadow-xs transition-colors flex items-center justify-center gap-1.5"
                   >
-                    <span>Solicitar Reserva (RF06)</span>
+                    <span>Solicitar Reserva</span>
                   </button>
                 </div>
               </div>
@@ -390,7 +390,7 @@ export const ReceiverExploreView: React.FC<ReceiverExploreViewProps> = ({
               <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-[11px] text-amber-900 space-y-1">
                 <div className="font-bold flex items-center gap-1">
                   <Sparkles className="w-3.5 h-3.5 text-amber-700" />
-                  Regras do PRD (RN04 / RF06 / RF08):
+                  Regras Operacionais da Reserva:
                 </div>
                 <p>
                   • A solicitação passará por <strong>Homologação Administrativa</strong> antes de ser liberada para transporte no Ciclo 3.

@@ -178,7 +178,7 @@ export const InitialProfileSetupModal: React.FC<InitialProfileSetupModalProps> =
                 <span className="font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-300">
                   PENDENTE
                 </span>
-                . Conforme as regras do PRD (RF03), o administrador do sistema avaliará seu cadastro antes de liberar as operações ativas.
+                . O administrador do sistema avaliará seu cadastro antes de liberar as operações ativas.
               </p>
               <div className="p-3.5 bg-stone-50 rounded-2xl border border-stone-200 text-left text-xs text-stone-600 max-w-md mx-auto space-y-1">
                 <div className="font-bold text-stone-800 flex items-center gap-1.5">
@@ -373,7 +373,7 @@ export const InitialProfileSetupModal: React.FC<InitialProfileSetupModalProps> =
               <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-[11px] flex items-start gap-2">
                 <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                 <p>
-                  <strong>Regra de Integridade (RF03):</strong> Cada perfil selecionado iniciará na situação{' '}
+                  <strong>Regra de Integridade:</strong> Cada perfil selecionado iniciará na situação{' '}
                   <span className="font-bold underline">PENDENTE</span> e passará pela avaliação de conformidade do administrador. As funções operacionais de doação e reserva serão liberadas individualmente após a homologação.
                 </p>
               </div>

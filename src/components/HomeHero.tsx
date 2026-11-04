@@ -157,7 +157,7 @@ export const HomeHero: React.FC<HomeHeroProps> = ({
           <div className="text-center max-w-2xl mx-auto mb-10">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 text-xs font-semibold mb-2">
               <Layers className="w-3.5 h-3.5" />
-              Regra de Negócio Fundamental (RN01)
+              Regra de Negócio de Perfis Independentes
             </div>
             <h2 className="text-2xl sm:text-3xl font-bold text-stone-950 font-serif">
               Três Perfis, Uma Conta Única

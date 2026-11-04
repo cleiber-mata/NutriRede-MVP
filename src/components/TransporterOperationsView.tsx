@@ -306,7 +306,7 @@ export const TransporterOperationsView: React.FC = () => {
           <div>
             <div className="flex items-center gap-2">
               <h3 className="text-sm font-bold text-stone-900">
-                Disponibilidade do Transportador (RF09)
+                Disponibilidade do Transportador
               </h3>
               <span
                 className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
@@ -387,7 +387,7 @@ export const TransporterOperationsView: React.FC = () => {
           }`}
         >
           <Package className="w-4 h-4" />
-          Coletas Disponíveis (RF10)
+          Coletas Disponíveis
           {approvedReservations.length > 0 && (
             <span className="ml-1 text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-amber-100 text-amber-800">
               {approvedReservations.length}
@@ -404,7 +404,7 @@ export const TransporterOperationsView: React.FC = () => {
           }`}
         >
           <Truck className="w-4 h-4" />
-          Minhas Coletas em Andamento (RF11)
+          Minhas Coletas em Andamento
           {(pendingPickups.length + inTransitPickups.length) > 0 && (
             <span className="ml-1 text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-teal-100 text-teal-800">
               {pendingPickups.length + inTransitPickups.length}
@@ -421,7 +421,7 @@ export const TransporterOperationsView: React.FC = () => {
           }`}
         >
           <CheckCircle2 className="w-4 h-4" />
-          Histórico de Entregas (RF15)
+          Histórico de Entregas
           {completedPickups.length > 0 && (
             <span className="ml-1 text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-800">
               {completedPickups.length}
@@ -509,7 +509,7 @@ export const TransporterOperationsView: React.FC = () => {
                       className="w-full py-2.5 px-4 rounded-xl text-xs font-semibold text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5 shadow-2xs"
                     >
                       <Truck className="w-4 h-4" />
-                      Aceitar Coleta (RF10)
+                      Aceitar Coleta
                     </button>
                   </div>
                 </div>
@@ -519,7 +519,7 @@ export const TransporterOperationsView: React.FC = () => {
         </div>
       )}
 
-      {/* Conteúdo da Aba 2: Minhas Coletas em Andamento (RF11) */}
+      {/* Conteúdo da Aba 2: Minhas Coletas em Andamento */}
       {activeTab === 'my_pickups' && (
         <div className="space-y-6">
           {(pendingPickups.length + inTransitPickups.length) === 0 ? (
@@ -566,7 +566,7 @@ export const TransporterOperationsView: React.FC = () => {
                               : 'bg-teal-100 text-teal-800 border-teal-300'
                           }`}
                         >
-                          {isPickedUp ? 'Alimentos em Transporte (RF11)' : 'Coleta Aceita — Aguardando Retirada'}
+                          {isPickedUp ? 'Alimentos em Transporte' : 'Coleta Aceita — Aguardando Retirada'}
                         </span>
                       </div>
                     </div>
@@ -588,13 +588,13 @@ export const TransporterOperationsView: React.FC = () => {
                         <div className="text-stone-500">Entidade Receptora Homologada</div>
                         <div className="text-[11px] text-stone-500 mt-1">
                           {isPickedUp
-                            ? 'Aguardando confirmação de recebimento pela entidade no destino (RN08).'
+                            ? 'Aguardando confirmação de recebimento pela entidade no destino.'
                             : 'Retire os alimentos no doador para iniciar o transporte.'}
                         </div>
                       </div>
                     </div>
 
-                    {/* Linha do Tempo Visual Integrada (RF13) */}
+                    {/* Linha do Tempo Visual Integrada */}
                     {batch && (
                       <OperationTimeline
                         batch={batch}
@@ -611,7 +611,7 @@ export const TransporterOperationsView: React.FC = () => {
                         className="py-2 px-3.5 rounded-xl text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 flex items-center gap-1.5 transition-colors"
                       >
                         <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
-                        Registrar Ocorrência (RF14)
+                        Registrar Ocorrência
                       </button>
 
                       {!isPickedUp ? (
@@ -621,7 +621,7 @@ export const TransporterOperationsView: React.FC = () => {
                           className="py-2.5 px-5 rounded-xl text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 transition-colors flex items-center gap-1.5 shadow-2xs"
                         >
                           <CheckCircle2 className="w-4 h-4" />
-                          Confirmar Retirada dos Alimentos (RF11)
+                          Confirmar retirada dos alimentos
                         </button>
                       ) : (
                         <div className="text-xs font-semibold text-amber-800 bg-amber-50 px-3 py-1.5 rounded-xl border border-amber-200 flex items-center gap-1.5">
@@ -675,7 +675,7 @@ export const TransporterOperationsView: React.FC = () => {
                       </div>
 
                       <span className="text-xs font-bold text-emerald-800 bg-emerald-100 px-3 py-1 rounded-full border border-emerald-300">
-                        Doação Concluída (RN08)
+                        Doação Concluída
                       </span>
                     </div>
 
@@ -709,14 +709,14 @@ export const TransporterOperationsView: React.FC = () => {
         </div>
       )}
 
-      {/* Modal de Confirmação de Aceite de Coleta (RF10) */}
+      {/* Modal de Confirmação de Aceite de Coleta */}
       {acceptingRes && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-stone-900/60 backdrop-blur-xs flex justify-center items-start sm:items-center p-2.5 sm:p-4 overscroll-contain">
           <div className="bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-7 max-w-md w-full shadow-2xl border border-stone-200 animate-in fade-in zoom-in-95 duration-150 space-y-4 my-auto max-h-[calc(100dvh-1.25rem)] sm:max-h-[min(90vh,750px)] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-stone-100 shrink-0">
               <h3 className="text-base font-bold text-stone-900 font-serif flex items-center gap-2">
                 <Truck className="w-5 h-5 text-amber-600 shrink-0" />
-                <span>Confirmar Aceite de Coleta</span>
+                <span>Confirmar aceite da coleta</span>
               </h3>
               <button onClick={() => setAcceptingRes(null)} aria-label="Fechar" className="p-1 rounded-lg text-stone-400 hover:text-stone-600 hover:bg-stone-100 shrink-0">
                 <X className="w-5 h-5" />
@@ -754,21 +754,21 @@ export const TransporterOperationsView: React.FC = () => {
                 onClick={handleAcceptPickup}
                 className="flex-1 py-2 rounded-xl text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5 shadow-2xs"
               >
-                {actionLoading ? 'Processando...' : 'Confirmar Aceite'}
+                {actionLoading ? 'Processando...' : 'Confirmar aceite da coleta'}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Modal de Confirmação de Retirada dos Alimentos (RF11) */}
+      {/* Modal de Confirmação de Retirada dos Alimentos */}
       {confirmPickupTarget && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-stone-900/60 backdrop-blur-xs flex justify-center items-start sm:items-center p-2.5 sm:p-4 overscroll-contain">
           <div className="bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-7 max-w-md w-full shadow-2xl border border-stone-200 animate-in fade-in zoom-in-95 duration-150 space-y-4 my-auto max-h-[calc(100dvh-1.25rem)] sm:max-h-[min(90vh,750px)] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-stone-100 shrink-0">
               <h3 className="text-base font-bold text-stone-900 font-serif flex items-center gap-2">
                 <CheckCircle2 className="w-5 h-5 text-amber-600 shrink-0" />
-                <span>Registrar Retirada dos Alimentos (RF11)</span>
+                <span>Confirmar retirada dos alimentos</span>
               </h3>
               <button onClick={() => setConfirmPickupTarget(null)} aria-label="Fechar" className="p-1 rounded-lg text-stone-400 hover:text-stone-600 hover:bg-stone-100 shrink-0">
                 <X className="w-5 h-5" />
@@ -804,7 +804,7 @@ export const TransporterOperationsView: React.FC = () => {
                 onClick={handleConfirmPickup}
                 className="flex-1 py-2 rounded-xl text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5 shadow-2xs"
               >
-                {actionLoading ? 'Registrando...' : 'Confirmar Retirada'}
+                {actionLoading ? 'Registrando...' : 'Confirmar retirada dos alimentos'}
               </button>
             </div>
           </div>

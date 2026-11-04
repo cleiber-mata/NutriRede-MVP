@@ -52,7 +52,7 @@ export const ConfirmDeliveryModal: React.FC<ConfirmDeliveryModalProps> = ({
       });
 
       setSuccessMsg(
-        'Recebimento confirmado com sucesso! A doação foi oficialmente CONCLUÍDA (RN08) e computada nos indicadores.'
+        'Recebimento confirmado com sucesso! A doação foi oficialmente concluída e computada nos indicadores.'
       );
       setTimeout(() => {
         setSuccessMsg(null);
@@ -77,10 +77,10 @@ export const ConfirmDeliveryModal: React.FC<ConfirmDeliveryModalProps> = ({
             </div>
             <div>
               <h3 className="text-base sm:text-lg font-bold text-stone-900 font-serif leading-tight">
-                Confirmar Recebimento da Doação (RF12)
+                Confirmar Recebimento da Doação
               </h3>
               <p className="text-xs text-stone-500">
-                Regra RN08: Conclusão oficial da doação de alimentos
+                Conclusão oficial da doação de alimentos
               </p>
             </div>
           </div>

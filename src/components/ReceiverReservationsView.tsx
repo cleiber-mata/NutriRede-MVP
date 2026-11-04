@@ -198,7 +198,7 @@ export const ReceiverReservationsView: React.FC<ReceiverReservationsViewProps> =
             <ArrowLeft className="w-3.5 h-3.5" />
             Voltar para Ofertas Disponíveis
           </button>
-          <h2 className="text-2xl sm:text-3xl font-bold font-serif">Minhas Reservas Solicitadas (RF07)</h2>
+          <h2 className="text-2xl sm:text-3xl font-bold font-serif">Minhas Reservas Solicitadas</h2>
           <p className="text-teal-100/80 text-xs sm:text-sm mt-1 max-w-xl">
             Acompanhe a situação das suas reservas, pareceres administrativos de homologação e histórico operacional.
           </p>
@@ -362,7 +362,7 @@ export const ReceiverReservationsView: React.FC<ReceiverReservationsViewProps> =
                     </div>
                   </div>
 
-                  {/* Banner de Doação em Transporte aguardando confirmação (RF12 / RN08) */}
+                  {/* Banner de Doação em Transporte aguardando confirmação */}
                   {isInTransit && (
                     <div className="p-4 bg-amber-50 rounded-2xl border border-amber-200 text-xs text-amber-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <div className="flex items-start gap-2.5">
@@ -372,7 +372,7 @@ export const ReceiverReservationsView: React.FC<ReceiverReservationsViewProps> =
                             Alimentos em Transporte — Aguardando Conferência de Recebimento
                           </div>
                           <p className="text-[11px] text-amber-800 mt-0.5">
-                            Retirada confirmada pelo transportador ({res.transporterName || 'Atribuído'}). Após receber a entrega, confirme para finalizar oficialmente a doação (RN08).
+                            Retirada confirmada pelo transportador ({res.transporterName || 'Atribuído'}). Após receber a entrega, confirme para finalizar oficialmente a doação.
                           </p>
                         </div>
                       </div>
@@ -383,7 +383,7 @@ export const ReceiverReservationsView: React.FC<ReceiverReservationsViewProps> =
                         className="py-2.5 px-4 rounded-xl text-xs font-bold text-white bg-teal-700 hover:bg-teal-800 transition-colors flex items-center justify-center gap-1.5 shadow-2xs shrink-0"
                       >
                         <CheckCircle2 className="w-4 h-4" />
-                        Confirmar Recebimento (RF12)
+                        Confirmar Recebimento
                       </button>
                     </div>
                   )}
@@ -392,12 +392,12 @@ export const ReceiverReservationsView: React.FC<ReceiverReservationsViewProps> =
                     <div className="p-3 bg-emerald-50 rounded-2xl border border-emerald-200 text-xs text-emerald-900 flex items-center gap-2">
                       <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
                       <div>
-                        <strong>Doação Concluída com Sucesso (RN08)!</strong> Alimentos recebidos e aproveitados socialmente.
+                        <strong>Doação Concluída com Sucesso!</strong> Alimentos recebidos e aproveitados socialmente.
                       </div>
                     </div>
                   )}
 
-                  {/* Linha do Tempo Visual Integrada (RF13) */}
+                  {/* Linha do Tempo Visual Integrada */}
                   {batch && (
                     <OperationTimeline
                       batch={batch}
@@ -407,7 +407,7 @@ export const ReceiverReservationsView: React.FC<ReceiverReservationsViewProps> =
                     />
                   )}
 
-                  {/* Informações da Decisão Administrativa (RF08) */}
+                  {/* Informações da Decisão Administrativa */}
                   {res.decidedAt && (
                     <div
                       className={`p-3 rounded-2xl border text-xs ${
@@ -444,7 +444,7 @@ export const ReceiverReservationsView: React.FC<ReceiverReservationsViewProps> =
                     className="px-3 py-1.5 rounded-xl text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-colors flex items-center gap-1"
                   >
                     <AlertTriangle className="w-3.5 h-3.5" />
-                    Registrar Ocorrência (RF14)
+                    Registrar Ocorrência
                   </button>
 
                   {canCancel && (
@@ -455,7 +455,7 @@ export const ReceiverReservationsView: React.FC<ReceiverReservationsViewProps> =
                       }}
                       className="px-3.5 py-1.5 rounded-xl text-xs font-semibold text-stone-600 bg-stone-100 hover:bg-stone-200 border border-stone-200 transition-colors"
                     >
-                      Cancelar Reserva (RF07)
+                      Cancelar Reserva
                     </button>
                   )}
                 </div>
@@ -536,7 +536,7 @@ export const ReceiverReservationsView: React.FC<ReceiverReservationsViewProps> =
           receiverName={currentUser.displayName || currentUser.email || 'Entidade Receptora'}
           onSuccess={() => {
             setFeedbackMsg({
-              text: `Doação do lote "${confirmDeliveryRes.foodName}" confirmada com sucesso! Conclusão oficializada no sistema (RN08).`,
+              text: `Doação do lote "${confirmDeliveryRes.foodName}" confirmada com sucesso! Conclusão oficializada no sistema.`,
               type: 'success'
             });
             setConfirmDeliveryRes(null);

@@ -182,7 +182,7 @@ export const AdminReservationsTab: React.FC = () => {
             <Clock className="w-4 h-4" />
           </div>
           <div className="text-2xl font-extrabold text-stone-900">{pendingCount}</div>
-          <p className="text-[11px] text-amber-800 mt-0.5">Aguardam homologação (RF08)</p>
+          <p className="text-[11px] text-amber-800 mt-0.5">Aguardam homologação</p>
         </div>
 
         <div

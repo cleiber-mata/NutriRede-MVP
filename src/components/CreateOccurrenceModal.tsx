@@ -94,7 +94,7 @@ export const CreateOccurrenceModal: React.FC<CreateOccurrenceModalProps> = ({
             </div>
             <div>
               <h3 className="text-base sm:text-lg font-bold text-stone-900 font-serif leading-tight">
-                Registrar Ocorrência (RF14)
+                Registrar Ocorrência
               </h3>
               <p className="text-xs text-stone-500">
                 Relatar divergências ou impedimentos operacionais
@@ -114,7 +114,7 @@ export const CreateOccurrenceModal: React.FC<CreateOccurrenceModalProps> = ({
 
         {foodName && (
           <div className="mb-4 p-3 bg-stone-50 rounded-2xl border border-stone-200 text-xs">
-            <span className="text-stone-500">Alimento em questão:</span>{' '}
+            <span className="text-stone-500">Alimento associado:</span>{' '}
             <strong className="text-stone-900">{foodName}</strong>
           </div>
         )}

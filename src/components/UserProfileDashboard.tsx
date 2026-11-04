@@ -264,7 +264,7 @@ export const UserProfileDashboard: React.FC<UserProfileDashboardProps> = ({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-2">
           <div>
             <h2 className="text-xl font-bold text-stone-900 font-serif">
-              Perfis Associados à sua Conta (RF02)
+              Perfis Associados à sua Conta
             </h2>
             <p className="text-xs text-stone-500">
               Uma mesma conta pode atuar em múltiplos papéis. Clique em um perfil para torná-lo ativo sem precisar fazer novo login.
@@ -286,7 +286,7 @@ export const UserProfileDashboard: React.FC<UserProfileDashboardProps> = ({
             </h3>
             <p className="text-xs sm:text-sm text-amber-800 max-w-lg mx-auto leading-relaxed">
               Sua conta Google está autenticada, mas você ainda não definiu seus papéis no NutriRede.
-              Selecione pelo menos um perfil (Doador, Entidade Receptora ou Transportador) para encaminhar seu cadastro para homologação (RF03).
+              Selecione pelo menos um perfil (Doador, Entidade Receptora ou Transportador) para encaminhar seu cadastro para homologação.
             </p>
             {onOpenInitialProfileSetup && (
               <div className="pt-2">
@@ -481,7 +481,7 @@ export const UserProfileDashboard: React.FC<UserProfileDashboardProps> = ({
                         }`}
                       >
                         <Package className="w-4 h-4" />
-                        Explorar Ofertas Disponíveis (RF05/RF06)
+                        Explorar Ofertas Disponíveis
                       </button>
 
                       <button
@@ -493,7 +493,7 @@ export const UserProfileDashboard: React.FC<UserProfileDashboardProps> = ({
                         }`}
                       >
                         <HeartHandshake className="w-4 h-4" />
-                        Minhas Reservas Solicitadas (RF07)
+                        Minhas Reservas Solicitadas
                       </button>
                     </div>
 
@@ -546,7 +546,7 @@ export const UserProfileDashboard: React.FC<UserProfileDashboardProps> = ({
                 </div>
                 <div>
                   <h4 className="text-lg font-bold text-amber-950">
-                    Acesso Operacional Bloqueado (RN02 / RF02)
+                    Acesso Operacional Bloqueado
                   </h4>
                   <p className="text-xs sm:text-sm text-amber-800 mt-1 leading-relaxed">
                     Seu perfil de <strong>{PROFILE_DEFINITIONS[activeProfile.profileType]?.title}</strong> está sob{' '}

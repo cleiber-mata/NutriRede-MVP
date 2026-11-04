@@ -192,7 +192,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToHome }) 
           </div>
           <h2 className="text-2xl font-bold text-stone-900 font-serif">Acesso Administrativo Restrito</h2>
           <p className="text-stone-600 text-xs sm:text-sm leading-relaxed">
-            Esta área é exclusiva para a supervisão e homologação de perfis (RF03).
+            Esta área é exclusiva para a supervisão e homologação de perfis.
             Sua conta atual <strong className="text-stone-800">({currentUser?.email || 'Não identificada'})</strong> não possui credenciais administrativas ativas.
           </p>
 
@@ -395,7 +395,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToHome }) 
           }`}
         >
           <Package className="w-4 h-4 text-amber-700" />
-          Solicitações de Reserva de Alimentos (RF08)
+          Solicitações de Reserva de Alimentos
         </button>
 
         <button

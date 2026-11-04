@@ -99,7 +99,7 @@ export const AdminHistoryTab: React.FC = () => {
         <div>
           <h3 className="text-lg font-bold text-stone-900 font-serif flex items-center gap-2">
             <History className="w-5 h-5 text-amber-700" />
-            Trilha de Auditoria e Histórico Geral (RF15)
+            Trilha de Auditoria e Histórico Geral
           </h3>
           <p className="text-xs text-stone-500 mt-1">
             Registro cronológico imutável de todas as ações executadas no fluxo de doação de alimentos.

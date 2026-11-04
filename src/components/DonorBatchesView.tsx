@@ -168,7 +168,7 @@ export const DonorBatchesView: React.FC = () => {
         <div>
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-200 border border-emerald-400/30 text-xs font-semibold mb-3">
             <Package className="w-3.5 h-3.5" />
-            Módulo Operacional do Doador (RF04)
+            Módulo Operacional do Doador
           </div>
           <h2 className="text-2xl sm:text-3xl font-bold font-serif">Minhas Doações Ofertadas</h2>
           <p className="text-emerald-100/80 text-xs sm:text-sm mt-1 max-w-xl">
@@ -445,7 +445,7 @@ export const DonorBatchesView: React.FC = () => {
                       <div className="mt-3 p-3 bg-amber-50 rounded-xl border border-amber-300 text-xs text-amber-950 space-y-1">
                         <div className="font-bold flex items-center gap-1.5 text-amber-800">
                           <Clock className="w-4 h-4 text-amber-700 shrink-0" />
-                          Reserva Solicitada — Aguardando Homologação Administrativa (RF08)
+                          Reserva Solicitada — Aguardando Homologação Administrativa
                         </div>
                         <p className="text-[11px] text-amber-900">
                           Solicitada pela entidade: <strong>{batch.reservedByName || linkedRes?.receiverName || 'Entidade Receptora'}</strong>. Em avaliação pela administração.
@@ -480,7 +480,7 @@ export const DonorBatchesView: React.FC = () => {
                     <div className="mt-3 p-3 bg-emerald-50 rounded-xl border border-emerald-300 text-xs text-emerald-950 space-y-1">
                       <div className="font-bold flex items-center gap-1.5 text-emerald-800">
                         <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                        Doação Concluída com Sucesso (RN08)
+                        Doação Concluída com Sucesso
                       </div>
                       <p className="text-[11px] text-emerald-900">
                         Recebimento confirmado no destino pela entidade receptora ({batch.reservedByName || linkedRes?.receiverName}).
