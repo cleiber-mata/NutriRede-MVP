@@ -19,7 +19,7 @@ import {
 import { collection, onSnapshot, query, where, doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from '../context/AuthContext';
-import { FoodBatch, Occurrence, Pickup, Reservation, UserProfileDoc } from '../types';
+import { FoodBatch, Occurrence, Pickup, Reservation, UserProfileDoc, Delivery } from '../types';
 import {
   acceptPickupAtomic,
   confirmPickupAtomic,
@@ -42,6 +42,7 @@ export const TransporterOperationsView: React.FC = () => {
   const [myPickups, setMyPickups] = useState<Pickup[]>([]);
   const [batchesMap, setBatchesMap] = useState<Record<string, FoodBatch>>({});
   const [occurrencesMap, setOccurrencesMap] = useState<Record<string, Occurrence[]>>({});
+  const [deliveries, setDeliveries] = useState<Delivery[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Ações e Modais
@@ -81,10 +82,11 @@ export const TransporterOperationsView: React.FC = () => {
     return () => unsubRes();
   }, [currentUser]);
 
-  // 3. Monitora coletas atribuídas ao transportador atual
+  // 3. Monitora coletas, lotes vinculados, entregas e ocorrências em tempo real
   useEffect(() => {
     if (!currentUser) return;
 
+    // Escuta coletas atribuídas ao transportador
     const qPick = query(
       collection(db, 'pickups'),
       where('transporterUserId', '==', currentUser.uid)
@@ -95,7 +97,7 @@ export const TransporterOperationsView: React.FC = () => {
       snap.forEach((d) => list.push(d.data() as Pickup));
       setMyPickups(list);
 
-      // Carrega lotes associados em lote para detalhes e timeline
+      // Carrega lotes associados que ainda não estejam em batchesMap
       const batchIds = Array.from(new Set(list.map((p) => p.batchId)));
       const newMap: Record<string, FoodBatch> = {};
 
@@ -106,13 +108,74 @@ export const TransporterOperationsView: React.FC = () => {
             newMap[bId] = bSnap.data() as FoodBatch;
           }
         } catch (e) {
-          console.warn('Erro ao carregar lote:', bId, e);
+          console.warn('Erro ao carregar lote pontual:', bId, e);
         }
       }
-      setBatchesMap(newMap);
+      setBatchesMap((prev) => ({ ...prev, ...newMap }));
     });
 
-    return () => unsubPick();
+    // Escuta em tempo real atualizações nos lotes vinculados a este transportador (RF11 / RF12 / RN08)
+    const qBatches = query(
+      collection(db, 'food_batches'),
+      where('transporterId', '==', currentUser.uid)
+    );
+
+    const unsubBatches = onSnapshot(qBatches, (snap) => {
+      setBatchesMap((prev) => {
+        const updated = { ...prev };
+        snap.forEach((d) => {
+          updated[d.id] = d.data() as FoodBatch;
+        });
+        return updated;
+      });
+    });
+
+    // Escuta em tempo real entregas concluídas deste transportador (RF12 / RF15)
+    const qDeliveries = query(
+      collection(db, 'deliveries'),
+      where('transporterUserId', '==', currentUser.uid)
+    );
+
+    const unsubDeliveries = onSnapshot(
+      qDeliveries,
+      (snap) => {
+        const list: Delivery[] = [];
+        snap.forEach((d) => list.push(d.data() as Delivery));
+        setDeliveries(list);
+      },
+      () => {
+        // Fallback silencioso
+      }
+    );
+
+    // Escuta em tempo real ocorrências operacionais deste transportador (RF14)
+    const qOcc = query(
+      collection(db, 'occurrences'),
+      where('transporterId', '==', currentUser.uid)
+    );
+
+    const unsubOcc = onSnapshot(
+      qOcc,
+      (snap) => {
+        const map: Record<string, Occurrence[]> = {};
+        snap.forEach((d) => {
+          const occ = d.data() as Occurrence;
+          if (!map[occ.batchId]) map[occ.batchId] = [];
+          map[occ.batchId].push(occ);
+        });
+        setOccurrencesMap(map);
+      },
+      () => {
+        // Fallback silencioso
+      }
+    );
+
+    return () => {
+      unsubPick();
+      unsubBatches();
+      unsubDeliveries();
+      unsubOcc();
+    };
   }, [currentUser]);
 
   // Alterna disponibilidade
@@ -206,9 +269,25 @@ export const TransporterOperationsView: React.FC = () => {
     }
   };
 
-  const pendingPickups = myPickups.filter((p) => p.status === 'ACEITA');
-  const inTransitPickups = myPickups.filter((p) => p.status === 'RETIRADA' && batchesMap[p.batchId]?.status === 'EM_TRANSPORTE');
-  const completedPickups = myPickups.filter((p) => batchesMap[p.batchId]?.status === 'CONCLUIDO');
+  const completedPickups = myPickups.filter((p) => {
+    const batch = batchesMap[p.batchId];
+    const hasDelivery = deliveries.some((d) => d.pickupId === p.id || d.batchId === p.batchId);
+    return batch?.status === 'CONCLUIDO' || hasDelivery;
+  });
+
+  const inTransitPickups = myPickups.filter((p) => {
+    const batch = batchesMap[p.batchId];
+    const isCompleted = batch?.status === 'CONCLUIDO' || deliveries.some((d) => d.pickupId === p.id || d.batchId === p.batchId);
+    if (isCompleted) return false;
+    return p.status === 'RETIRADA' || batch?.status === 'EM_TRANSPORTE';
+  });
+
+  const pendingPickups = myPickups.filter((p) => {
+    const batch = batchesMap[p.batchId];
+    const isCompleted = batch?.status === 'CONCLUIDO' || deliveries.some((d) => d.pickupId === p.id || d.batchId === p.batchId);
+    const isInTransit = p.status === 'RETIRADA' || batch?.status === 'EM_TRANSPORTE';
+    return !isCompleted && !isInTransit && p.status === 'ACEITA';
+  });
 
   return (
     <div className="space-y-6">
@@ -343,6 +422,11 @@ export const TransporterOperationsView: React.FC = () => {
         >
           <CheckCircle2 className="w-4 h-4" />
           Histórico de Entregas (RF15)
+          {completedPickups.length > 0 && (
+            <span className="ml-1 text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-800">
+              {completedPickups.length}
+            </span>
+          )}
         </button>
       </div>
 
@@ -515,6 +599,7 @@ export const TransporterOperationsView: React.FC = () => {
                       <OperationTimeline
                         batch={batch}
                         pickup={pickup}
+                        occurrences={occurrencesMap[pickup.batchId] || []}
                       />
                     )}
 
@@ -568,40 +653,57 @@ export const TransporterOperationsView: React.FC = () => {
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-4">
-              {completedPickups.map((pickup) => (
-                <div
-                  key={pickup.id}
-                  className="bg-white rounded-3xl p-5 border border-stone-200 space-y-3"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                      <h4 className="text-base font-bold text-stone-900 font-serif">
-                        {pickup.foodName}
-                      </h4>
-                      <span className="text-xs font-bold text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-full border border-emerald-300">
-                        {pickup.batchQuantity} {pickup.batchUnit}
+              {completedPickups.map((pickup) => {
+                const batch = batchesMap[pickup.batchId];
+                const delivery = deliveries.find((d) => d.pickupId === pickup.id || d.batchId === pickup.batchId);
+                const batchOccs = occurrencesMap[pickup.batchId] || [];
+
+                return (
+                  <div
+                    key={pickup.id}
+                    className="bg-white rounded-3xl p-5 border border-stone-200 space-y-3"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                        <h4 className="text-base font-bold text-stone-900 font-serif">
+                          {pickup.foodName}
+                        </h4>
+                        <span className="text-xs font-bold text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-full border border-emerald-300">
+                          {pickup.batchQuantity} {pickup.batchUnit}
+                        </span>
+                      </div>
+
+                      <span className="text-xs font-bold text-emerald-800 bg-emerald-100 px-3 py-1 rounded-full border border-emerald-300">
+                        Doação Concluída (RN08)
                       </span>
                     </div>
 
-                    <span className="text-xs font-bold text-emerald-800 bg-emerald-100 px-3 py-1 rounded-full border border-emerald-300">
-                      Doação Concluída (RN08)
-                    </span>
-                  </div>
+                    <div className="text-xs text-stone-600 grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2 border-t border-stone-100">
+                      <div>
+                        <span className="text-stone-400">Doador:</span> {pickup.donorName}
+                      </div>
+                      <div>
+                        <span className="text-stone-400">Entidade:</span> {pickup.receiverName}
+                      </div>
+                      <div>
+                        <span className="text-stone-400">Entregue em:</span> {formatDateTimeBR(delivery?.confirmedAt || batch?.completedAt || pickup.pickedUpAt || pickup.acceptedAt)}
+                      </div>
+                    </div>
 
-                  <div className="text-xs text-stone-600 grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2 border-t border-stone-100">
-                    <div>
-                      <span className="text-stone-400">Doador:</span> {pickup.donorName}
-                    </div>
-                    <div>
-                      <span className="text-stone-400">Entidade:</span> {pickup.receiverName}
-                    </div>
-                    <div>
-                      <span className="text-stone-400">Aceito em:</span> {formatDateTimeBR(pickup.acceptedAt)}
-                    </div>
+                    {/* Linha do tempo visual da doação concluída */}
+                    {batch && (
+                      <div className="pt-2 border-t border-stone-100">
+                        <OperationTimeline
+                          batch={batch}
+                          pickup={pickup}
+                          occurrences={batchOccs}
+                        />
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

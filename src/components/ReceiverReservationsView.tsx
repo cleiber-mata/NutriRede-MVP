@@ -15,7 +15,7 @@ import {
 import { collection, onSnapshot, query, where, doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from '../context/AuthContext';
-import { FoodBatch, RESERVATION_STATUS_CONFIG, Reservation, ReservationStatus } from '../types';
+import { FoodBatch, RESERVATION_STATUS_CONFIG, Reservation, ReservationStatus, Pickup, Occurrence } from '../types';
 import { cancelReservationAtomic } from '../services/foodBatchService';
 import { formatDateTimeBR } from '../utils/dateUtils';
 import { ConfirmDeliveryModal } from './ConfirmDeliveryModal';
@@ -33,6 +33,8 @@ export const ReceiverReservationsView: React.FC<ReceiverReservationsViewProps> =
 
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [batchesMap, setBatchesMap] = useState<Record<string, FoodBatch>>({});
+  const [pickups, setPickups] = useState<Pickup[]>([]);
+  const [occurrences, setOccurrences] = useState<Occurrence[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<'ALL' | ReservationStatus>('ALL');
   const [searchTerm, setSearchTerm] = useState('');
@@ -51,13 +53,15 @@ export const ReceiverReservationsView: React.FC<ReceiverReservationsViewProps> =
     if (!currentUser) return;
 
     setLoading(true);
-    const q = query(
+
+    // 1. Escuta em tempo real as reservas da entidade receptora
+    const qRes = query(
       collection(db, 'reservations'),
       where('receiverId', '==', currentUser.uid)
     );
 
-    const unsubscribe = onSnapshot(
-      q,
+    const unsubRes = onSnapshot(
+      qRes,
       async (snapshot) => {
         const list: Reservation[] = [];
         snapshot.forEach((docItem) => {
@@ -66,7 +70,7 @@ export const ReceiverReservationsView: React.FC<ReceiverReservationsViewProps> =
         list.sort((a, b) => new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime());
         setReservations(list);
 
-        // Carrega os lotes correspondentes para acompanhar estados do Ciclo 3
+        // Carrega inicialmente os lotes correspondentes
         const batchIds = Array.from(new Set(list.map((r) => r.batchId)));
         const newMap: Record<string, FoodBatch> = {};
         for (const bId of batchIds) {
@@ -79,7 +83,7 @@ export const ReceiverReservationsView: React.FC<ReceiverReservationsViewProps> =
             console.warn('Erro ao carregar lote:', bId, e);
           }
         }
-        setBatchesMap(newMap);
+        setBatchesMap((prev) => ({ ...prev, ...newMap }));
         setLoading(false);
       },
       (error) => {
@@ -88,7 +92,58 @@ export const ReceiverReservationsView: React.FC<ReceiverReservationsViewProps> =
       }
     );
 
-    return () => unsubscribe();
+    // 2. Escuta em tempo real os lotes reservados por esta entidade receptora
+    const qBatches = query(
+      collection(db, 'food_batches'),
+      where('reservedBy', '==', currentUser.uid)
+    );
+
+    const unsubBatches = onSnapshot(qBatches, (snapshot) => {
+      setBatchesMap((prev) => {
+        const updated = { ...prev };
+        snapshot.forEach((d) => {
+          updated[d.id] = d.data() as FoodBatch;
+        });
+        return updated;
+      });
+    });
+
+    // 3. Escuta em tempo real as coletas vinculadas a esta entidade receptora
+    const qPickups = query(
+      collection(db, 'pickups'),
+      where('receiverId', '==', currentUser.uid)
+    );
+
+    const unsubPickups = onSnapshot(qPickups, (snapshot) => {
+      const list: Pickup[] = [];
+      snapshot.forEach((d) => list.push(d.data() as Pickup));
+      setPickups(list);
+    });
+
+    // 4. Escuta em tempo real as ocorrências vinculadas a esta entidade receptora
+    const qOcc = query(
+      collection(db, 'occurrences'),
+      where('receiverId', '==', currentUser.uid)
+    );
+
+    const unsubOcc = onSnapshot(
+      qOcc,
+      (snapshot) => {
+        const list: Occurrence[] = [];
+        snapshot.forEach((d) => list.push(d.data() as Occurrence));
+        setOccurrences(list);
+      },
+      () => {
+        // Fallback silencioso caso não haja índice composto ou permissão restrita
+      }
+    );
+
+    return () => {
+      unsubRes();
+      unsubBatches();
+      unsubPickups();
+      unsubOcc();
+    };
   }, [currentUser]);
 
   const handleConfirmCancel = async () => {
@@ -239,8 +294,10 @@ export const ReceiverReservationsView: React.FC<ReceiverReservationsViewProps> =
         <div className="space-y-4">
           {filtered.map((res) => {
             const batch = batchesMap[res.batchId];
-            const isInTransit = batch?.status === 'EM_TRANSPORTE';
-            const isConcluded = batch?.status === 'CONCLUIDO';
+            const linkedPickup = pickups.find((p) => p.reservationId === res.id || p.batchId === res.batchId || p.id === res.activePickupId);
+            const batchOccurrences = occurrences.filter((o) => o.batchId === res.batchId || o.operationId === res.id || (linkedPickup && o.operationId === linkedPickup.id));
+            const isInTransit = batch?.status === 'EM_TRANSPORTE' || (linkedPickup?.status === 'RETIRADA' && batch?.status !== 'CONCLUIDO') || (!!res.pickedUpAt && !res.completedAt && batch?.status !== 'CONCLUIDO');
+            const isConcluded = batch?.status === 'CONCLUIDO' || !!res.completedAt;
             const statusMeta = RESERVATION_STATUS_CONFIG[res.status];
             const canCancel =
               res.status === 'PENDENTE_APROVACAO' ||
@@ -345,6 +402,8 @@ export const ReceiverReservationsView: React.FC<ReceiverReservationsViewProps> =
                     <OperationTimeline
                       batch={batch}
                       reservation={res}
+                      pickup={linkedPickup}
+                      occurrences={batchOccurrences}
                     />
                   )}
 

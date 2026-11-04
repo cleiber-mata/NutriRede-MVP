@@ -18,7 +18,7 @@ import {
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from '../context/AuthContext';
-import { BATCH_STATUS_CONFIG, FoodBatch, FoodBatchStatus, Reservation } from '../types';
+import { BATCH_STATUS_CONFIG, FoodBatch, FoodBatchStatus, Occurrence, Pickup, Reservation } from '../types';
 import { cancelFoodBatch } from '../services/foodBatchService';
 import { CreateBatchModal } from './CreateBatchModal';
 import { formatDateBR, formatDateTimeBR } from '../utils/dateUtils';
@@ -29,6 +29,8 @@ export const DonorBatchesView: React.FC = () => {
 
   const [batches, setBatches] = useState<FoodBatch[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [pickups, setPickups] = useState<Pickup[]>([]);
+  const [occurrences, setOccurrences] = useState<Occurrence[]>([]);
   const [loading, setLoading] = useState(true);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<'ALL' | FoodBatchStatus>('ALL');
@@ -47,6 +49,16 @@ export const DonorBatchesView: React.FC = () => {
 
     const qReservations = query(
       collection(db, 'reservations'),
+      where('donorId', '==', currentUser.uid)
+    );
+
+    const qPickups = query(
+      collection(db, 'pickups'),
+      where('donorId', '==', currentUser.uid)
+    );
+
+    const qOccurrences = query(
+      collection(db, 'occurrences'),
       where('donorId', '==', currentUser.uid)
     );
 
@@ -81,9 +93,39 @@ export const DonorBatchesView: React.FC = () => {
       }
     );
 
+    const unsubscribePickups = onSnapshot(
+      qPickups,
+      (snapshot) => {
+        const list: Pickup[] = [];
+        snapshot.forEach((docItem) => {
+          list.push(docItem.data() as Pickup);
+        });
+        setPickups(list);
+      },
+      (error) => {
+        console.warn('Erro ao escutar coletas do doador:', error);
+      }
+    );
+
+    const unsubscribeOccurrences = onSnapshot(
+      qOccurrences,
+      (snapshot) => {
+        const list: Occurrence[] = [];
+        snapshot.forEach((docItem) => {
+          list.push(docItem.data() as Occurrence);
+        });
+        setOccurrences(list);
+      },
+      (error) => {
+        console.warn('Erro ao escutar ocorrências do doador:', error);
+      }
+    );
+
     return () => {
       unsubscribeBatches();
       unsubscribeReservations();
+      unsubscribePickups();
+      unsubscribeOccurrences();
     };
   }, [currentUser]);
 
@@ -295,7 +337,9 @@ export const DonorBatchesView: React.FC = () => {
             const statusMeta = BATCH_STATUS_CONFIG[batch.status];
             const isOperating = cancelingId === batch.id;
             const isExpired = new Date(batch.expirationDate).getTime() < new Date().setHours(0, 0, 0, 0);
-            const linkedRes = reservations.find((r) => r.id === batch.activeReservationId);
+            const linkedRes = reservations.find((r) => r.id === batch.activeReservationId || r.batchId === batch.id);
+            const linkedPickup = pickups.find((p) => p.batchId === batch.id || (linkedRes && p.reservationId === linkedRes.id) || p.id === batch.activePickupId);
+            const batchOccurrences = occurrences.filter((o) => o.batchId === batch.id || (linkedRes && o.operationId === linkedRes.id) || (linkedPickup && o.operationId === linkedPickup.id));
             const isApprovedReservation =
               batch.activeReservationStatus === 'APROVADA' || linkedRes?.status === 'APROVADA';
 
@@ -446,7 +490,12 @@ export const DonorBatchesView: React.FC = () => {
                   {/* Linha do Tempo da Operação (RF13) */}
                   {(linkedRes || batch.status !== 'DISPONIVEL') && (
                     <div className="mt-3">
-                      <OperationTimeline batch={batch} reservation={linkedRes} />
+                      <OperationTimeline
+                        batch={batch}
+                        reservation={linkedRes}
+                        pickup={linkedPickup}
+                        occurrences={batchOccurrences}
+                      />
                     </div>
                   )}
                 </div>
