@@ -227,6 +227,9 @@ export interface Occurrence {
   type: string;
   description: string;
   createdAt: string;
+  donorId?: string;
+  receiverId?: string;
+  transporterId?: string;
 }
 
 export type HistoryObjectType = 'LOTE' | 'RESERVA' | 'COLETA' | 'ENTREGA' | 'OCORRENCIA';
@@ -243,6 +246,9 @@ export interface OperationHistoryEvent {
   details: string;
   batchId?: string;
   reservationId?: string;
+  donorId?: string;
+  receiverId?: string;
+  transporterId?: string;
 }
 
 export interface ProfileMeta {

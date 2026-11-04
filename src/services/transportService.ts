@@ -205,7 +205,10 @@ export async function acceptPickupAtomic(params: AcceptPickupParams): Promise<st
         timestamp: now,
         details: `Coleta de ${batch.quantity} ${batch.unit} de ${batch.foodName} aceita pelo transportador.`,
         batchId: batch.id,
-        reservationId: res.id
+        reservationId: res.id,
+        donorId: batch.donorId,
+        receiverId: res.receiverId,
+        transporterId: params.transporterUserId
       };
       transaction.set(historyRef, historyEvent);
     });
@@ -299,7 +302,10 @@ export async function confirmPickupAtomic(params: ConfirmPickupParams): Promise<
         timestamp: now,
         details: `Alimentos retirados pelo transportador no local de coleta. Lote em trânsito para entrega à entidade receptora.`,
         batchId: pickup.batchId,
-        reservationId: pickup.reservationId
+        reservationId: pickup.reservationId,
+        donorId: pickup.donorId,
+        receiverId: pickup.receiverId,
+        transporterId: params.transporterUserId
       };
       transaction.set(historyRef, historyEvent);
     });
@@ -423,7 +429,10 @@ export async function confirmDeliveryAtomic(params: ConfirmDeliveryParams): Prom
         timestamp: now,
         details: `Recebimento de ${batch.quantity} ${batch.unit} de ${batch.foodName} confirmado pela entidade receptora. Doação CONCLUÍDA com sucesso (RN08).`,
         batchId: batch.id,
-        reservationId: res.id
+        reservationId: res.id,
+        donorId: batch.donorId,
+        receiverId: params.receiverUserId,
+        transporterId: pickup.transporterUserId
       };
       transaction.set(historyRef, historyEvent);
     });
@@ -462,6 +471,22 @@ export async function createOccurrence(input: CreateOccurrenceInput): Promise<st
   const occRef = doc(collection(db, 'occurrences'));
   const now = new Date().toISOString();
 
+  // Busca dados de participantes do lote para assegurar isolamento por RBAC
+  let donorId: string | undefined = undefined;
+  let receiverId: string | undefined = undefined;
+  let transporterId: string | undefined = undefined;
+  try {
+    const batchSnap = await getDoc(doc(db, 'food_batches', input.batchId));
+    if (batchSnap.exists()) {
+      const bData = batchSnap.data() as FoodBatch;
+      donorId = bData.donorId || undefined;
+      receiverId = bData.reservedBy || undefined;
+      transporterId = bData.transporterId || undefined;
+    }
+  } catch (e) {
+    console.warn('Não foi possível carregar lote para ocorrência:', e);
+  }
+
   const newOccurrence: Occurrence = {
     id: occRef.id,
     operationId: input.operationId,
@@ -473,13 +498,16 @@ export async function createOccurrence(input: CreateOccurrenceInput): Promise<st
     stage: input.stage,
     type: input.type,
     description: desc,
-    createdAt: now
+    createdAt: now,
+    ...(donorId ? { donorId } : {}),
+    ...(receiverId ? { receiverId } : {}),
+    ...(transporterId ? { transporterId } : {})
   };
 
   try {
     await setDoc(occRef, newOccurrence);
 
-    // Registra evento no histórico
+    // Registra evento no histórico com vínculos de participantes
     await logOperationHistory({
       objectType: 'OCORRENCIA',
       objectId: occRef.id,
@@ -489,7 +517,10 @@ export async function createOccurrence(input: CreateOccurrenceInput): Promise<st
       activeProfile: input.authorProfile,
       details: `[${input.stage}] ${input.type}: ${desc}`,
       batchId: input.batchId,
-      reservationId: input.operationId
+      reservationId: input.operationId,
+      ...(donorId ? { donorId } : {}),
+      ...(receiverId ? { receiverId } : {}),
+      ...(transporterId ? { transporterId } : {})
     });
 
     return occRef.id;
