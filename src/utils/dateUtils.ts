@@ -8,27 +8,39 @@ const SP_TIMEZONE = 'America/Sao_Paulo';
 
 /**
  * Converte data simples (YYYY-MM-DD), data brasileira (DD/MM/AAAA) ou timestamp ISO para DD/MM/AAAA.
- * Previne estritamente a inversão de mês/dia (ex: 03/11/2026 virar 11/03/2026) e desvios de fuso.
+ * Diferencia estritamente:
+ * 1. Strings já formatadas em DD/MM/AAAA.
+ * 2. Datas puras de calendário (YYYY-MM-DD) sem hora (preserva os dias digitados).
+ * 3. Datetime-local puro (YYYY-MM-DDTHH:mm) sem timezone.
+ * 4. Timestamps ISO com timezone (Z, +00:00, -03:00, etc.) no fuso de Brasília (America/Sao_Paulo).
  */
 export function formatDateBR(dateStr?: string | null): string {
   if (!dateStr) return '-';
   const trimmed = dateStr.trim();
 
-  // 1. Já está no formato brasileiro DD/MM/AAAA (ex: "03/11/2026" ou "03/11/2026 às 14h30")
+  // 1. Já está no formato brasileiro DD/MM/AAAA
   const brMatch = trimmed.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
   if (brMatch) {
     const [, day, month, year] = brMatch;
     return `${day}/${month}/${year}`;
   }
 
-  // 2. Data pura ISO (YYYY-MM-DD) ou datetime sem timezone UTC explícito (evita desvio de meia-noite)
-  const isoDateMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})(?:T.*)?$/);
-  if (isoDateMatch && (!trimmed.includes('T') || !trimmed.endsWith('Z'))) {
-    const [, year, month, day] = isoDateMatch;
+  // 2. Data pura ISO (YYYY-MM-DD) sem hora
+  const pureDateMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (pureDateMatch) {
+    const [, year, month, day] = pureDateMatch;
     return `${day}/${month}/${year}`;
   }
 
-  // 3. Timestamps ISO com timezone (ex: 2026-11-03T18:00:00.000Z) -> Converte no fuso de Brasília
+  // 3. Datetime-local puro sem timezone (YYYY-MM-DDTHH:mm ou YYYY-MM-DDTHH:mm:ss)
+  // Sem sufixo Z e sem offset (+HH:mm ou -HH:mm após o horário)
+  const localMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})T\d{2}:\d{2}(?::\d{2})?$/);
+  if (localMatch) {
+    const [, year, month, day] = localMatch;
+    return `${day}/${month}/${year}`;
+  }
+
+  // 4. Timestamps ISO com timezone explícito (Z, +00:00, -03:00, etc.) -> Fuso America/Sao_Paulo
   try {
     const date = new Date(trimmed);
     if (!isNaN(date.getTime())) {
@@ -55,9 +67,8 @@ export function formatDateBR(dateStr?: string | null): string {
 }
 
 /**
- * Converte strings de data/hora (inclusive ISO e datetime-local)
- * para o formato oficial: DD/MM/AAAA às HH:mm (24 horas)
- * Previne estritamente a inversão de mês/dia e desvios de fuso.
+ * Converte strings de data/hora para o formato oficial: DD/MM/AAAA às HH:mm (24 horas).
+ * Preserva horários de retirada digitados localmente e converte timestamps ISO para o fuso de Brasília.
  */
 export function formatDateTimeBR(dateStr?: string | null): string {
   if (!dateStr) return '-';
@@ -78,20 +89,20 @@ export function formatDateTimeBR(dateStr?: string | null): string {
   }
 
   // Se for apenas data pura ISO YYYY-MM-DD
-  const isoDateOnlyMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (isoDateOnlyMatch) {
-    const [, year, month, day] = isoDateOnlyMatch;
+  const pureDateMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (pureDateMatch) {
+    const [, year, month, day] = pureDateMatch;
     return `${day}/${month}/${year}`;
   }
 
-  // 2. Trata formato datetime-local direto (YYYY-MM-DDTHH:mm) preservando horário exato digitado
-  const localMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
-  if (localMatch && !trimmed.endsWith('Z') && !trimmed.includes('+') && !trimmed.match(/-\d{2}:\d{2}$/)) {
+  // 2. Datetime-local puro sem timezone (YYYY-MM-DDTHH:mm)
+  const localMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::\d{2})?$/);
+  if (localMatch) {
     const [, year, month, day, hour, minute] = localMatch;
     return `${day}/${month}/${year} às ${hour}h${minute}`;
   }
 
-  // 3. Timestamps ISO com timezone (ex: 2026-11-03T18:00:00.000Z ou decidedAt) -> Brasília (America/Sao_Paulo)
+  // 3. Timestamps ISO com timezone (Z, +00:00, -03:00, decidedAt, etc.) -> Fuso America/Sao_Paulo
   try {
     const date = new Date(trimmed);
     if (!isNaN(date.getTime())) {

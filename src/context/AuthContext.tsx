@@ -26,6 +26,7 @@ interface AuthContextType {
   isOwner: boolean;
   adminRole: AdminRole | null;
   isLoading: boolean;
+  isProfilesLoaded: boolean;
   error: string | null;
   systemConfig: SystemConfigDoc | null;
   setActiveProfile: (profile: UserProfileDoc | null) => void;
@@ -47,6 +48,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [adminRole, setAdminRole] = useState<AdminRole | null>(null);
   const [systemConfig, setSystemConfig] = useState<SystemConfigDoc | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isProfilesLoaded, setIsProfilesLoaded] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
   // Testa conectividade no boot
@@ -69,6 +71,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setAdminRole(null);
         setSystemConfig(null);
         setIsLoading(false);
+        setIsProfilesLoaded(true);
         return;
       }
 
