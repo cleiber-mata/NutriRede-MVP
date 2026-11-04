@@ -18,7 +18,9 @@ import {
   getTodayCivilDateBR,
   validatePickupWindowAgainstExpiration,
   isDateBeforeTodayCivilBR,
-  isBatchExpired
+  isBatchExpired,
+  formatDateTimeBR,
+  formatDateBR
 } from '../utils/dateUtils';
 
 interface CreateBatchModalProps {
@@ -38,6 +40,25 @@ const CATEGORIES: FoodCategory[] = [
 
 const UNITS: BatchUnit[] = ['kg', 'g', 'litros', 'unidades'];
 
+// Formata objeto Date para o formato compatível com input datetime-local (YYYY-MM-DDTHH:mm)
+const toDateTimeLocalString = (date: Date): string => {
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  const year = date.getFullYear();
+  const month = pad(date.getMonth() + 1);
+  const day = pad(date.getDate());
+  const hours = pad(date.getHours());
+  const minutes = pad(date.getMinutes());
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+};
+
+// Adiciona horas a uma data/hora no formato local
+const addHoursToDateTime = (isoOrDate: string | Date, hours: number): string => {
+  const base = typeof isoOrDate === 'string' ? new Date(isoOrDate) : isoOrDate;
+  if (isNaN(base.getTime())) return '';
+  const target = new Date(base.getTime() + hours * 60 * 60 * 1000);
+  return toDateTimeLocalString(target);
+};
+
 export const CreateBatchModal: React.FC<CreateBatchModalProps> = ({
   isOpen,
   onClose,
@@ -55,6 +76,8 @@ export const CreateBatchModal: React.FC<CreateBatchModalProps> = ({
   const [pickupAddress, setPickupAddress] = useState('');
   const [pickupWindowStart, setPickupWindowStart] = useState('');
   const [pickupWindowEnd, setPickupWindowEnd] = useState('');
+  // Flag para rastrear se o usuário alterou manualmente o término, evitando sobrescrita indevida
+  const [isEndManuallyEdited, setIsEndManuallyEdited] = useState(false);
   const [fitForConsumption, setFitForConsumption] = useState(false);
 
   const [loading, setLoading] = useState(false);
@@ -66,15 +89,57 @@ export const CreateBatchModal: React.FC<CreateBatchModalProps> = ({
   // Data mínima civil de hoje em Brasília (M41)
   const todayStr = getTodayCivilDateBR();
 
+  // Edição manual do Início da janela
   const handleStartChange = (val: string) => {
     setPickupWindowStart(val);
     if (val) {
-      // Sugestão automática de término 2 horas após o início, permitindo ajuste manual
-      const startDate = new Date(val);
-      if (!isNaN(startDate.getTime())) {
-        const suggestedEnd = new Date(startDate.getTime() + 2 * 60 * 60 * 1000);
-        const pad = (n: number) => n.toString().padStart(2, '0');
-        const endFormatted = `${suggestedEnd.getFullYear()}-${pad(suggestedEnd.getMonth() + 1)}-${pad(suggestedEnd.getDate())}T${pad(suggestedEnd.getHours())}:${pad(suggestedEnd.getMinutes())}`;
+      // Sugere término 2 horas após o início APENAS se o usuário não tiver personalizado manualmente
+      if (!isEndManuallyEdited || !pickupWindowEnd) {
+        const endFormatted = addHoursToDateTime(val, 2);
+        if (endFormatted) {
+          setPickupWindowEnd(endFormatted);
+        }
+      }
+    }
+  };
+
+  // Edição manual do Término da janela pelo usuário (nunca reverte automaticamente)
+  const handleEndChange = (val: string) => {
+    setPickupWindowEnd(val);
+    if (!val) {
+      // Se o usuário limpou o campo, permite nova sugestão automática quando alterar o início
+      setIsEndManuallyEdited(false);
+    } else {
+      setIsEndManuallyEdited(true);
+    }
+  };
+
+  // Atalhos rápidos para ajustar o término em dispositivos móveis
+  const applySuggestedHours = (hours: number) => {
+    if (!pickupWindowStart) {
+      const now = new Date();
+      const startFormatted = toDateTimeLocalString(now);
+      const endFormatted = addHoursToDateTime(now, hours);
+      setPickupWindowStart(startFormatted);
+      setPickupWindowEnd(endFormatted);
+      setIsEndManuallyEdited(hours !== 2);
+    } else {
+      const endFormatted = addHoursToDateTime(pickupWindowStart, hours);
+      if (endFormatted) {
+        setPickupWindowEnd(endFormatted);
+        setIsEndManuallyEdited(hours !== 2);
+      }
+    }
+  };
+
+  // Atalho para definir início como agora no relógio
+  const handleSetStartNow = () => {
+    const now = new Date();
+    const startFormatted = toDateTimeLocalString(now);
+    setPickupWindowStart(startFormatted);
+    if (!isEndManuallyEdited || !pickupWindowEnd) {
+      const endFormatted = addHoursToDateTime(now, 2);
+      if (endFormatted) {
         setPickupWindowEnd(endFormatted);
       }
     }
@@ -191,10 +256,65 @@ export const CreateBatchModal: React.FC<CreateBatchModalProps> = ({
     setPickupAddress('');
     setPickupWindowStart('');
     setPickupWindowEnd('');
+    setIsEndManuallyEdited(false);
     setFitForConsumption(false);
     setErrorMsg(null);
     setSuccess(false);
   };
+
+  // Validação e cálculo da duração da janela em tempo real para feedback visual mobile
+  let durationLabel: string | null = null;
+  let durationAlert: { type: 'valid' | 'warning' | 'error'; message: string } | null = null;
+
+  if (pickupWindowStart && pickupWindowEnd) {
+    const startMs = new Date(pickupWindowStart).getTime();
+    const endMs = new Date(pickupWindowEnd).getTime();
+
+    if (!isNaN(startMs) && !isNaN(endMs)) {
+      if (endMs <= startMs) {
+        durationAlert = {
+          type: 'error',
+          message: 'O término da retirada deve ser estritamente posterior ao horário de início.'
+        };
+      } else {
+        const diffHours = (endMs - startMs) / (1000 * 60 * 60);
+        durationLabel = diffHours < 1
+          ? `${Math.round(diffHours * 60)} min`
+          : diffHours === 1
+          ? '1 hora'
+          : `${Math.round(diffHours * 10) / 10} horas`;
+
+        if (diffHours > 72) {
+          durationAlert = {
+            type: 'error',
+            message: `Duração calculada (${durationLabel}) excede o limite máximo permitido de 72 horas.`
+          };
+        } else if (expirationDate) {
+          const check = validatePickupWindowAgainstExpiration(
+            pickupWindowEnd,
+            expirationDate,
+            consumptionDeadline
+          );
+          if (!check.valid) {
+            durationAlert = {
+              type: 'error',
+              message: check.error || 'O término ultrapassa a validade informada.'
+            };
+          } else {
+            durationAlert = {
+              type: 'valid',
+              message: `Duração da janela: ${durationLabel}. Compatível com a validade e normas do PRD.`
+            };
+          }
+        } else {
+          durationAlert = {
+            type: 'valid',
+            message: `Duração da janela: ${durationLabel}.`
+          };
+        }
+      }
+    }
+  }
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-stone-900/60 backdrop-blur-xs flex justify-center items-start sm:items-center p-2.5 sm:p-4 overscroll-contain">
@@ -253,7 +373,7 @@ export const CreateBatchModal: React.FC<CreateBatchModalProps> = ({
               </div>
             </div>
           ) : (
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4 pb-8 sm:pb-4">
               {errorMsg && (
                 <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-2.5">
                   <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
@@ -273,7 +393,7 @@ export const CreateBatchModal: React.FC<CreateBatchModalProps> = ({
                     value={foodName}
                     onChange={(e) => setFoodName(e.target.value)}
                     placeholder="Ex: Pães franceses do dia, Tomates e Alfaces hidropônicas"
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-stone-300 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    className="w-full px-3 py-2 text-base sm:text-xs min-h-[42px] rounded-xl border border-stone-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-stone-900 bg-white"
                   />
                 </div>
 
@@ -284,7 +404,7 @@ export const CreateBatchModal: React.FC<CreateBatchModalProps> = ({
                   <select
                     value={category}
                     onChange={(e) => setCategory(e.target.value as FoodCategory)}
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-stone-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
+                    className="w-full px-3 py-2 text-base sm:text-xs min-h-[42px] rounded-xl border border-stone-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white text-stone-900"
                   >
                     {CATEGORIES.map((c) => (
                       <option key={c} value={c}>
@@ -310,7 +430,7 @@ export const CreateBatchModal: React.FC<CreateBatchModalProps> = ({
                       value={quantity}
                       onChange={(e) => setQuantity(e.target.value === '' ? '' : Number(e.target.value))}
                       placeholder="Ex: 50"
-                      className="w-full px-3 py-2 text-xs rounded-xl border border-stone-300 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      className="w-full px-3 py-2 text-base sm:text-xs min-h-[42px] rounded-xl border border-stone-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-stone-900 bg-white"
                     />
                   </div>
                 </div>
@@ -322,7 +442,7 @@ export const CreateBatchModal: React.FC<CreateBatchModalProps> = ({
                   <select
                     value={unit}
                     onChange={(e) => setUnit(e.target.value as BatchUnit)}
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-stone-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
+                    className="w-full px-3 py-2 text-base sm:text-xs min-h-[42px] rounded-xl border border-stone-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white text-stone-900"
                   >
                     {UNITS.map((u) => (
                       <option key={u} value={u}>
@@ -342,8 +462,13 @@ export const CreateBatchModal: React.FC<CreateBatchModalProps> = ({
                     min={todayStr}
                     value={expirationDate}
                     onChange={(e) => setExpirationDate(e.target.value)}
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-stone-300 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    className="w-full px-3 py-2 text-base sm:text-xs min-h-[42px] rounded-xl border border-stone-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-stone-900 bg-white"
                   />
+                  {expirationDate && (
+                    <p className="text-[11px] text-stone-500 mt-1">
+                      Validade: <strong>{formatDateBR(expirationDate)}</strong>
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -362,7 +487,7 @@ export const CreateBatchModal: React.FC<CreateBatchModalProps> = ({
                     required
                     value={consumptionDeadline}
                     onChange={(e) => setConsumptionDeadline(e.target.value)}
-                    className="w-full sm:w-44 px-3 py-2 text-xs rounded-xl border border-amber-300 focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white font-semibold text-stone-900"
+                    className="w-full sm:w-44 px-3 py-2 text-base sm:text-xs min-h-[42px] rounded-xl border border-amber-300 focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white font-semibold text-stone-900"
                   />
                 </div>
               )}
@@ -378,7 +503,7 @@ export const CreateBatchModal: React.FC<CreateBatchModalProps> = ({
                   value={storageCondition}
                   onChange={(e) => setStorageCondition(e.target.value)}
                   placeholder="Ex: Refrigerado (4°C a 8°C), Ambiente seco e arejado, Congelado"
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-stone-300 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  className="w-full px-3 py-2 text-base sm:text-xs min-h-[42px] rounded-xl border border-stone-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-stone-900 bg-white"
                 />
               </div>
 
@@ -395,44 +520,135 @@ export const CreateBatchModal: React.FC<CreateBatchModalProps> = ({
                     value={pickupAddress}
                     onChange={(e) => setPickupAddress(e.target.value)}
                     placeholder="Ex: Av. Paulista, 1000 - Doca 3 - Bela Vista, São Paulo - SP"
-                    className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-stone-300 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    className="w-full pl-9 pr-3 py-2 text-base sm:text-xs min-h-[42px] rounded-xl border border-stone-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-stone-900 bg-white"
                   />
                 </div>
               </div>
 
-              {/* Linha 5: Janela de Retirada (Início e Término) */}
-              <div className="p-3.5 bg-stone-50 rounded-2xl border border-stone-200 space-y-2">
+              {/* Linha 5: Janela de Retirada (Início e Término - Mobile M35/M26/M30) */}
+              <div className="p-3.5 bg-stone-50 rounded-2xl border border-stone-200 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                  <label className="text-xs font-bold text-stone-800 flex items-center gap-1.5">
+                    <Clock className="w-4 h-4 text-emerald-700" />
+                    <span>Janela de Retirada dos Alimentos <span className="text-rose-500">*</span></span>
+                  </label>
+                  <span className="text-[11px] text-stone-500">
+                    Fuso de Brasília • Limite máx: 72 horas
+                  </span>
+                </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-stone-700 mb-1 flex items-center gap-1">
-                      <Clock className="w-3.5 h-3.5 text-stone-500" />
-                      Início da Janela de Retirada <span className="text-rose-500">*</span>
-                    </label>
+                  {/* Início da Retirada */}
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <label className="font-semibold text-stone-700">Início da Retirada</label>
+                      <button
+                        type="button"
+                        onClick={handleSetStartNow}
+                        className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 underline transition-colors"
+                      >
+                        Definir agora
+                      </button>
+                    </div>
                     <input
                       type="datetime-local"
                       required
+                      step="60"
                       value={pickupWindowStart}
                       onChange={(e) => handleStartChange(e.target.value)}
-                      className="w-full px-3 py-2 text-xs rounded-xl border border-stone-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
+                      className="w-full min-h-[44px] px-3 py-2 text-base sm:text-xs rounded-xl border border-stone-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white text-stone-900"
                     />
+                    {pickupWindowStart && (
+                      <p className="text-[11px] text-stone-600">
+                        Início: <strong>{formatDateTimeBR(pickupWindowStart)}</strong>
+                      </p>
+                    )}
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-semibold text-stone-700 mb-1 flex items-center gap-1">
-                      <Clock className="w-3.5 h-3.5 text-stone-500" />
-                      Término da Janela de Retirada <span className="text-rose-500">*</span>
-                    </label>
+                  {/* Término da Retirada */}
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-1.5">
+                        <label className="font-semibold text-stone-700">Término da Retirada</label>
+                        {isEndManuallyEdited && (
+                          <span className="text-[10px] font-semibold text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded border border-amber-200">
+                            Manual
+                          </span>
+                        )}
+                      </div>
+                      {isEndManuallyEdited && (
+                        <button
+                          type="button"
+                          onClick={() => applySuggestedHours(2)}
+                          className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 underline transition-colors"
+                          title="Redefinir para a sugestão padrão de 2 horas após o início"
+                        >
+                          Sugerir +2h
+                        </button>
+                      )}
+                    </div>
                     <input
                       type="datetime-local"
                       required
+                      step="60"
                       value={pickupWindowEnd}
-                      onChange={(e) => setPickupWindowEnd(e.target.value)}
-                      className="w-full px-3 py-2 text-xs rounded-xl border border-stone-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
+                      onChange={(e) => handleEndChange(e.target.value)}
+                      className="w-full min-h-[44px] px-3 py-2 text-base sm:text-xs rounded-xl border border-stone-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white text-stone-900"
                     />
+                    {pickupWindowEnd && (
+                      <p className="text-[11px] text-stone-600">
+                        Término: <strong>{formatDateTimeBR(pickupWindowEnd)}</strong>
+                      </p>
+                    )}
                   </div>
                 </div>
-                <p className="text-[10px] text-stone-500">
-                  * Sugestão automática de término 2 horas após o início (ajuste manual permitido). Duração máxima permitida: 72 horas.
+
+                {/* Botões de atalho rápido para dispositivos móveis */}
+                <div className="pt-1 flex flex-wrap items-center gap-1.5 text-xs">
+                  <span className="text-[11px] text-stone-500 font-medium mr-1">Atalhos para término:</span>
+                  <button
+                    type="button"
+                    onClick={() => applySuggestedHours(2)}
+                    className="px-2.5 py-1 rounded-lg text-xs font-semibold text-stone-700 bg-white hover:bg-stone-100 border border-stone-200 transition-colors shadow-2xs"
+                  >
+                    +2 horas
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => applySuggestedHours(4)}
+                    className="px-2.5 py-1 rounded-lg text-xs font-semibold text-stone-700 bg-white hover:bg-stone-100 border border-stone-200 transition-colors shadow-2xs"
+                  >
+                    +4 horas
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => applySuggestedHours(24)}
+                    className="px-2.5 py-1 rounded-lg text-xs font-semibold text-stone-700 bg-white hover:bg-stone-100 border border-stone-200 transition-colors shadow-2xs"
+                  >
+                    +24 horas (amanhã)
+                  </button>
+                </div>
+
+                {/* Alerta de validação em tempo real da duração da janela */}
+                {durationAlert && (
+                  <div
+                    className={`p-2.5 rounded-xl text-xs flex items-center gap-2 ${
+                      durationAlert.type === 'valid'
+                        ? 'bg-emerald-50 text-emerald-900 border border-emerald-200'
+                        : 'bg-rose-50 text-rose-900 border border-rose-200'
+                    }`}
+                  >
+                    {durationAlert.type === 'valid' ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                    )}
+                    <span className="leading-tight">{durationAlert.message}</span>
+                  </div>
+                )}
+
+                <p className="text-[10px] text-stone-500 leading-normal">
+                  * Sugestão automática inicial de 2 horas após o início. Você pode alterar livremente a data e horário de término pelos campos ou atalhos sem que o sistema reverta sua personalização.
                 </p>
               </div>
 
