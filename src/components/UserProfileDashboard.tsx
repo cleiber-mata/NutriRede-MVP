@@ -23,7 +23,8 @@ import {
   HeartHandshake,
   Edit3,
   PowerOff,
-  KeyRound
+  KeyRound,
+  ChevronDown
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -69,6 +70,16 @@ export const UserProfileDashboard: React.FC<UserProfileDashboardProps> = ({
   const [deactivateTarget, setDeactivateTarget] = useState<UserProfileDoc | null>(null);
   const [reactivatingId, setReactivatingId] = useState<string | null>(null);
   const [feedbackMsg, setFeedbackMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+
+  // Controle de detalhes expansíveis dos perfis (M45)
+  const [expandedProfileDetails, setExpandedProfileDetails] = useState<Record<string, boolean>>({});
+
+  const toggleProfileDetails = (profileId: string) => {
+    setExpandedProfileDetails((prev) => ({
+      ...prev,
+      [profileId]: !prev[profileId]
+    }));
+  };
 
   if (!currentUser) {
     return (
@@ -301,140 +312,193 @@ export const UserProfileDashboard: React.FC<UserProfileDashboardProps> = ({
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
             {userProfiles.map((profile) => {
-            const meta = PROFILE_DEFINITIONS[profile.profileType];
-            const statusConfig = STATUS_CONFIG[profile.status];
-            const isActive = activeProfile?.id === profile.id;
-            const isApproved = profile.status === 'APROVADO';
-            const isDeactivated = profile.status === 'DESATIVADO';
+              const meta = PROFILE_DEFINITIONS[profile.profileType];
+              const statusConfig = STATUS_CONFIG[profile.status];
+              const isActive = activeProfile?.id === profile.id;
+              const isApproved = profile.status === 'APROVADO';
+              const isDeactivated = profile.status === 'DESATIVADO';
+              const isDetailsOpen = !!expandedProfileDetails[profile.id];
 
-            return (
-              <div
-                key={profile.id}
-                onClick={() => {
-                  if (!isDeactivated) {
-                    switchActiveProfileType(profile.profileType);
-                  }
-                }}
-                className={`relative rounded-3xl p-6 border-2 transition-all flex flex-col justify-between ${
-                  isActive
-                    ? 'border-emerald-600 bg-white shadow-lg ring-4 ring-emerald-50 cursor-pointer'
-                    : isDeactivated
-                    ? 'border-stone-200 bg-stone-50/80 opacity-90'
-                    : 'border-stone-200 bg-white hover:border-emerald-300 hover:shadow-md cursor-pointer'
-                }`}
-              >
-                {/* Active Indicator Top Badge */}
-                {isActive && (
-                  <div className="absolute -top-3 left-6 px-3 py-0.5 rounded-full bg-emerald-700 text-white text-[10px] font-bold uppercase tracking-wider shadow-xs flex items-center gap-1">
-                    <Check className="w-3 h-3" />
-                    Perfil Ativo no Momento
-                  </div>
-                )}
-
-                <div>
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="w-12 h-12 rounded-2xl bg-stone-100 flex items-center justify-center">
-                      {getProfileIcon(profile.profileType)}
-                    </div>
-                    {getStatusBadge(profile.status)}
-                  </div>
-
-                  <h3 className="text-lg font-bold text-stone-900">
-                    {meta?.title || profile.profileType}
-                  </h3>
-                  <p className="text-xs text-stone-500 font-medium mb-3">
-                    {meta?.subtitle}
-                  </p>
-
-                  <p className="text-xs text-stone-600 leading-relaxed mb-4">
-                    {meta?.description}
-                  </p>
-                </div>
-
-                {/* Status Box & Regras de Acesso */}
-                <div className="pt-4 border-t border-stone-100 space-y-2">
-                  <div className={`p-3 rounded-xl ${statusConfig.bgLight} border ${statusConfig.borderColor} text-xs`}>
-                    <div className="flex items-center gap-1.5 font-bold mb-1">
-                      {profile.status === 'APROVADO' && <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />}
-                      {profile.status === 'PENDENTE' && <Clock className="w-4 h-4 text-amber-600 shrink-0" />}
-                      {profile.status === 'REJEITADO' && <XCircle className="w-4 h-4 text-rose-600 shrink-0" />}
-                      {profile.status === 'DESATIVADO' && <PowerOff className="w-4 h-4 text-stone-600 shrink-0" />}
-                      <span className={statusConfig.textColor}>
-                        Situação: {statusConfig.label}
+              return (
+                <div
+                  key={profile.id}
+                  onClick={() => {
+                    if (!isDeactivated && !isActive) {
+                      switchActiveProfileType(profile.profileType);
+                    }
+                  }}
+                  className={`relative rounded-2xl border transition-all duration-200 overflow-hidden flex flex-col justify-between ${
+                    isActive
+                      ? 'border-emerald-600 bg-emerald-50/25 shadow-xs ring-2 ring-emerald-500/20'
+                      : isDeactivated
+                      ? 'border-stone-200 bg-stone-50/80 opacity-80'
+                      : 'border-stone-200 bg-white hover:border-emerald-300 hover:shadow-2xs cursor-pointer'
+                  }`}
+                >
+                  {/* Faixa superior do Perfil Ativo */}
+                  {isActive && (
+                    <div className="bg-emerald-700 text-white text-[10px] font-bold uppercase tracking-wider px-3 py-0.5 flex items-center justify-between">
+                      <span className="flex items-center gap-1">
+                        <Check className="w-3 h-3" />
+                        Perfil Ativo
                       </span>
+                      <span className="text-[9px] font-normal opacity-90">Em operação no painel</span>
                     </div>
-                    <p className={`text-[11px] ${statusConfig.textColor} leading-tight`}>
-                      {statusConfig.description}
-                    </p>
-                    {profile.decidedAt && (
-                      <p className="text-[10px] text-stone-500 mt-1.5">
-                        Decisão registrada em: {formatDateTimeBR(profile.decidedAt)}
-                      </p>
-                    )}
-                    {profile.decisionNotes && (
-                      <p className="text-[10px] text-stone-700 mt-1 italic bg-white/70 p-1.5 rounded">
-                        "Motivo: {profile.decisionNotes}"
-                      </p>
-                    )}
-                    {isDeactivated && profile.deactivatedAt && (
-                      <p className="text-[10px] text-stone-500 mt-1">
-                        Desativado em: {formatDateTimeBR(profile.deactivatedAt)}
-                        {profile.deactivationReason && ` • "${profile.deactivationReason}"`}
-                      </p>
-                    )}
-                  </div>
+                  )}
 
-                  {!isDeactivated ? (
-                    <div className="space-y-1.5">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          switchActiveProfileType(profile.profileType);
-                        }}
-                        className={`w-full py-2 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors ${
-                          isActive
-                            ? 'bg-emerald-600 text-white'
-                            : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
-                        }`}
-                      >
-                        {isActive ? 'Perfil Selecionado' : 'Alternar para este Perfil'}
-                      </button>
+                  {/* Face Compacta do Cartão (sempre visível) */}
+                  <div className="p-3.5 sm:p-4 space-y-2.5">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div
+                          className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                            isActive ? 'bg-emerald-100 text-emerald-800' : 'bg-stone-100 text-stone-700'
+                          }`}
+                        >
+                          {getProfileIcon(profile.profileType)}
+                        </div>
+                        <div className="min-w-0">
+                          <h3 className="text-sm font-bold text-stone-900 truncate font-serif">
+                            {meta?.title || profile.profileType}
+                          </h3>
+                          <span className="text-[11px] text-stone-500 truncate block">
+                            {meta?.subtitle || 'Perfil do NutriRede'}
+                          </span>
+                        </div>
+                      </div>
 
-                      {isApproved && (
+                      <div className="shrink-0">
+                        {getStatusBadge(profile.status)}
+                      </div>
+                    </div>
+
+                    {/* Ações Compactas e Separadas: Selecionar vs Ver Detalhes */}
+                    <div className="pt-2 border-t border-stone-100 flex items-center justify-between gap-2">
+                      {/* Ação 1: Selecionar Perfil */}
+                      {isActive ? (
+                        <span className="text-[11px] font-bold text-emerald-800 bg-emerald-100/90 px-2.5 py-1 rounded-lg border border-emerald-300 flex items-center gap-1">
+                          <Check className="w-3.5 h-3.5" />
+                          Selecionado
+                        </span>
+                      ) : isDeactivated ? (
+                        <span className="text-[11px] font-medium text-stone-500 bg-stone-100 px-2.5 py-1 rounded-lg flex items-center gap-1">
+                          <PowerOff className="w-3 h-3 text-stone-400" />
+                          Desativado
+                        </span>
+                      ) : (
                         <button
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            setDeactivateTarget(profile);
+                            switchActiveProfileType(profile.profileType);
                           }}
-                          className="w-full py-1.5 px-3 rounded-xl text-[11px] font-medium text-stone-500 hover:text-stone-700 hover:bg-stone-100 flex items-center justify-center gap-1 border border-stone-200 transition-colors"
+                          className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 bg-white hover:bg-emerald-50 border border-emerald-300 px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1 shadow-2xs"
                         >
-                          <PowerOff className="w-3 h-3 text-stone-400" />
-                          Desativar este perfil
+                          <span>Selecionar</span>
+                          <ArrowRight className="w-3 h-3" />
                         </button>
                       )}
+
+                      {/* Ação 2: Ver / Ocultar Detalhes */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleProfileDetails(profile.id);
+                        }}
+                        className="text-[11px] font-semibold text-stone-600 hover:text-stone-900 flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-stone-100 transition-colors"
+                        aria-expanded={isDetailsOpen}
+                      >
+                        <span>{isDetailsOpen ? 'Ocultar detalhes' : 'Ver detalhes'}</span>
+                        <ChevronDown
+                          className={`w-3.5 h-3.5 transition-transform duration-200 ${
+                            isDetailsOpen ? 'rotate-180' : ''
+                          }`}
+                        />
+                      </button>
                     </div>
-                  ) : (
-                    <button
-                      type="button"
-                      disabled={reactivatingId === profile.id}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleRequestReactivation(profile.id);
-                      }}
-                      className="w-full py-2 px-3 rounded-xl text-xs font-semibold bg-amber-600 hover:bg-amber-700 text-white flex items-center justify-center gap-1.5 transition-colors shadow-2xs disabled:opacity-50"
-                    >
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>{reactivatingId === profile.id ? 'Enviando...' : 'Solicitar Reativação'}</span>
-                    </button>
+                  </div>
+
+                  {/* Detalhes Expansíveis Sob Demanda */}
+                  {isDetailsOpen && (
+                    <div className="border-t border-stone-100 p-3.5 sm:p-4 bg-stone-50/70 text-xs space-y-2.5 animate-in fade-in duration-150">
+                      <p className="text-stone-600 text-[11px] leading-relaxed">
+                        {meta?.description}
+                      </p>
+
+                      {/* Box de Informações da Situação e Decisão Administrativa */}
+                      <div className={`p-2.5 rounded-xl ${statusConfig.bgLight} border ${statusConfig.borderColor} text-xs space-y-1`}>
+                        <div className="flex items-center gap-1.5 font-bold">
+                          {profile.status === 'APROVADO' && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />}
+                          {profile.status === 'PENDENTE' && <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />}
+                          {profile.status === 'REJEITADO' && <XCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />}
+                          {profile.status === 'DESATIVADO' && <PowerOff className="w-3.5 h-3.5 text-stone-600 shrink-0" />}
+                          <span className={statusConfig.textColor}>
+                            {statusConfig.label}
+                          </span>
+                        </div>
+                        <p className={`text-[11px] ${statusConfig.textColor} leading-tight`}>
+                          {statusConfig.description}
+                        </p>
+
+                        {profile.decidedAt && (
+                          <p className="text-[10px] text-stone-500 pt-1 border-t border-stone-200/50">
+                            Decisão registrada em: {formatDateTimeBR(profile.decidedAt)}
+                          </p>
+                        )}
+
+                        {profile.decisionNotes && (
+                          <p className="text-[10px] text-stone-700 italic bg-white/80 p-1.5 rounded border border-stone-200/50">
+                            "Parecer: {profile.decisionNotes}"
+                          </p>
+                        )}
+
+                        {isDeactivated && profile.deactivatedAt && (
+                          <p className="text-[10px] text-stone-500 pt-1 border-t border-stone-200/50">
+                            Desativado em: {formatDateTimeBR(profile.deactivatedAt)}
+                            {profile.deactivationReason && ` • Motivo: "${profile.deactivationReason}"`}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Ações de Gestão de Ciclo de Vida: Desativação / Reativação */}
+                      <div className="pt-1">
+                        {isApproved && !isDeactivated && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDeactivateTarget(profile);
+                            }}
+                            className="w-full py-1.5 px-3 rounded-xl text-xs font-medium text-stone-600 hover:text-rose-700 hover:bg-rose-50 flex items-center justify-center gap-1.5 border border-stone-200 transition-colors"
+                          >
+                            <PowerOff className="w-3.5 h-3.5 text-stone-400" />
+                            Desativar este perfil voluntariamente
+                          </button>
+                        )}
+
+                        {isDeactivated && (
+                          <button
+                            type="button"
+                            disabled={reactivatingId === profile.id}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRequestReactivation(profile.id);
+                            }}
+                            className="w-full py-2 px-3 rounded-xl text-xs font-semibold bg-amber-600 hover:bg-amber-700 text-white flex items-center justify-center gap-1.5 transition-colors shadow-2xs disabled:opacity-50"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span>{reactivatingId === profile.id ? 'Enviando...' : 'Solicitar Reativação'}</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   )}
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
           </div>
         )}
       </div>
