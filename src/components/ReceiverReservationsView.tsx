@@ -10,14 +10,16 @@ import {
   ArrowLeft,
   X,
   Truck,
-  AlertTriangle
+  AlertTriangle,
+  ChevronDown,
+  Calendar
 } from 'lucide-react';
 import { collection, onSnapshot, query, where, doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from '../context/AuthContext';
 import { FoodBatch, RESERVATION_STATUS_CONFIG, Reservation, ReservationStatus, Pickup, Occurrence } from '../types';
 import { cancelReservationAtomic } from '../services/foodBatchService';
-import { formatDateTimeBR } from '../utils/dateUtils';
+import { formatDateTimeBR, formatDateBR } from '../utils/dateUtils';
 import { ConfirmDeliveryModal } from './ConfirmDeliveryModal';
 import { CreateOccurrenceModal } from './CreateOccurrenceModal';
 import { OperationTimeline } from './OperationTimeline';
@@ -38,6 +40,13 @@ export const ReceiverReservationsView: React.FC<ReceiverReservationsViewProps> =
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<'ALL' | ReservationStatus>('ALL');
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Controle de expansão/recolhimento da lista compacta (M44) - inicia recolhido
+  const [expandedReservationId, setExpandedReservationId] = useState<string | null>(null);
+
+  const toggleExpand = (id: string) => {
+    setExpandedReservationId((prev) => (prev === id ? null : id));
+  };
 
   // Cancelamento
   const [cancelModalRes, setCancelModalRes] = useState<Reservation | null>(null);
@@ -291,7 +300,7 @@ export const ReceiverReservationsView: React.FC<ReceiverReservationsViewProps> =
           )}
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-3">
           {filtered.map((res) => {
             const batch = batchesMap[res.batchId];
             const linkedPickup = pickups.find((p) => p.reservationId === res.id || p.batchId === res.batchId || p.id === res.activePickupId);
@@ -303,162 +312,240 @@ export const ReceiverReservationsView: React.FC<ReceiverReservationsViewProps> =
               res.status === 'PENDENTE_APROVACAO' ||
               (res.status === 'APROVADA' && !res.pickedUpAt && !isInTransit && !isConcluded);
 
+            const isExpanded = expandedReservationId === res.id;
+
+            let displayStatusLabel = statusMeta.label;
+            let displayBadgeClass = statusMeta.badgeClass;
+
+            if (isConcluded) {
+              displayStatusLabel = 'Concluída';
+              displayBadgeClass = 'bg-emerald-100 text-emerald-800 border-emerald-300';
+            } else if (isInTransit) {
+              displayStatusLabel = 'Em Transporte';
+              displayBadgeClass = 'bg-blue-100 text-blue-900 border-blue-300';
+            }
+
             return (
               <div
                 key={res.id}
-                className="bg-white rounded-3xl p-6 border border-stone-200 shadow-2xs hover:shadow-xs transition-shadow flex flex-col md:flex-row md:items-start justify-between gap-6"
+                className={`bg-white rounded-2xl sm:rounded-3xl border transition-all duration-200 overflow-hidden ${
+                  isExpanded
+                    ? 'border-teal-500 shadow-md ring-1 ring-teal-500/20'
+                    : 'border-stone-200 shadow-2xs hover:border-teal-300 hover:shadow-xs'
+                }`}
               >
-                <div className="space-y-3 flex-1">
-                  <div className="flex items-center gap-3 flex-wrap">
-                    <span className="text-base font-bold text-stone-900">{res.foodName}</span>
+                {/* Linha Compacta Clicável (M44) */}
+                <button
+                  type="button"
+                  onClick={() => toggleExpand(res.id)}
+                  aria-expanded={isExpanded}
+                  className="w-full text-left p-4 sm:p-5 flex items-center justify-between gap-3 sm:gap-4 transition-colors hover:bg-stone-50/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 group"
+                >
+                  <div className="flex items-center gap-2 sm:gap-3 flex-wrap sm:flex-nowrap flex-1 min-w-0">
+                    {/* Alimento */}
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Package className="w-4 h-4 text-teal-700 shrink-0" />
+                      <span className="font-bold text-stone-900 text-sm sm:text-base font-serif truncate">
+                        {res.foodName}
+                      </span>
+                    </div>
+
+                    <span className="text-stone-300 hidden sm:inline select-none">|</span>
+
+                    {/* Quantidade */}
+                    <span className="text-xs font-bold text-teal-900 bg-teal-50 px-2.5 py-0.5 rounded-full border border-teal-200 shrink-0">
+                      {res.batchQuantity} {res.batchUnit}
+                    </span>
+
+                    <span className="text-stone-300 hidden sm:inline select-none">|</span>
+
+                    {/* Data da Solicitação */}
+                    <span className="text-xs text-stone-600 shrink-0 flex items-center gap-1">
+                      <Calendar className="w-3.5 h-3.5 text-stone-400" />
+                      <span>{formatDateBR(res.requestedAt)}</span>
+                    </span>
+
+                    <span className="text-stone-300 hidden sm:inline select-none">|</span>
+
+                    {/* Status da Reserva */}
+                    <div className="shrink-0">
+                      <span
+                        className={`text-xs px-2.5 py-0.5 rounded-full font-bold border ${displayBadgeClass}`}
+                      >
+                        {displayStatusLabel}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Ícone de Expansão / Recolhimento */}
+                  <div className="shrink-0 pl-1 sm:pl-2">
                     <span
-                      className={`text-xs px-2.5 py-1 rounded-full font-bold border ${statusMeta.badgeClass}`}
+                      className={`w-7 h-7 rounded-xl flex items-center justify-center transition-all duration-200 ${
+                        isExpanded
+                          ? 'bg-teal-100 text-teal-800 rotate-180'
+                          : 'bg-stone-100 text-stone-500 group-hover:bg-stone-200 group-hover:text-stone-800'
+                      }`}
+                      aria-hidden="true"
                     >
-                      {statusMeta.label}
+                      <ChevronDown className="w-4 h-4 transition-transform duration-200" />
                     </span>
                   </div>
+                </button>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3.5 bg-stone-50 rounded-2xl border border-stone-100 text-xs text-stone-600">
-                    <div>
-                      <span className="text-[10px] uppercase font-bold text-stone-400 block">
-                        Quantidade Reservada
-                      </span>
-                      <strong className="text-stone-900 text-sm">
-                        {res.batchQuantity} {res.batchUnit}
-                      </strong>
-                    </div>
-
-                    <div>
-                      <span className="text-[10px] uppercase font-bold text-stone-400 block">
-                        Doador Responsável
-                      </span>
-                      <span className="text-stone-800 font-semibold">{res.donorName}</span>
-                    </div>
-
-                    <div>
-                      <span className="text-[10px] uppercase font-bold text-stone-400 block">
-                        Data da Solicitação
-                      </span>
-                      <span className="text-stone-800">
-                        {formatDateTimeBR(res.requestedAt)}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="text-xs text-stone-500 space-y-1">
-                    <div className="flex items-center gap-1.5">
-                      <MapPin className="w-3.5 h-3.5 text-stone-400" />
-                      <span>Local de Retirada: {res.pickupAddress}</span>
-                    </div>
-                    <div className="pt-2 border-t border-stone-200/60 space-y-1">
-                      <div className="flex items-center gap-1.5 text-stone-700 font-semibold text-xs">
-                        <Clock className="w-3.5 h-3.5 text-teal-700 shrink-0" />
-                        <span>Janela de Retirada:</span>
+                {/* Detalhes Expansíveis (Visíveis apenas quando expandido) */}
+                {isExpanded && (
+                  <div className="border-t border-stone-100 p-5 sm:p-6 bg-stone-50/40 space-y-5 animate-in fade-in slide-in-from-top-1 duration-150">
+                    {/* Informações detalhadas da doação */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 bg-white rounded-2xl border border-stone-200/80 text-xs text-stone-600 shadow-2xs">
+                      <div>
+                        <span className="text-[10px] uppercase font-bold text-stone-400 block">
+                          Quantidade Reservada
+                        </span>
+                        <strong className="text-stone-900 text-sm">
+                          {res.batchQuantity} {res.batchUnit}
+                        </strong>
                       </div>
-                      <div className="pl-5 text-[11px] text-stone-800 space-y-0.5">
-                        <div><strong className="text-stone-900">Início:</strong> {formatDateTimeBR(res.pickupWindowStart)}</div>
-                        <div><strong className="text-stone-900">Término:</strong> {formatDateTimeBR(res.pickupWindowEnd)}</div>
+
+                      <div>
+                        <span className="text-[10px] uppercase font-bold text-stone-400 block">
+                          Doador Responsável
+                        </span>
+                        <span className="text-stone-800 font-semibold">{res.donorName}</span>
+                      </div>
+
+                      <div>
+                        <span className="text-[10px] uppercase font-bold text-stone-400 block">
+                          Data e Hora da Solicitação
+                        </span>
+                        <span className="text-stone-800 font-medium">
+                          {formatDateTimeBR(res.requestedAt)}
+                        </span>
                       </div>
                     </div>
-                  </div>
 
-                  {/* Banner de Doação em Transporte aguardando confirmação */}
-                  {isInTransit && (
-                    <div className="p-4 bg-amber-50 rounded-2xl border border-amber-200 text-xs text-amber-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      <div className="flex items-start gap-2.5">
-                        <Truck className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
+                    {/* Local e Janela de Retirada */}
+                    <div className="p-4 bg-white rounded-2xl border border-stone-200/80 text-xs text-stone-600 shadow-2xs space-y-2">
+                      <div className="flex items-start gap-2">
+                        <MapPin className="w-4 h-4 text-teal-700 shrink-0 mt-0.5" />
                         <div>
-                          <div className="font-bold text-amber-950">
-                            Alimentos em Transporte — Aguardando Conferência de Recebimento
-                          </div>
-                          <p className="text-[11px] text-amber-800 mt-0.5">
-                            Retirada confirmada pelo transportador ({res.transporterName || 'Atribuído'}). Após receber a entrega, confirme para finalizar oficialmente a doação.
-                          </p>
+                          <strong className="text-stone-900 block">Endereço de Retirada:</strong>
+                          <span className="text-stone-600">{res.pickupAddress}</span>
                         </div>
                       </div>
 
+                      <div className="pt-2 border-t border-stone-100 space-y-1">
+                        <div className="flex items-center gap-1.5 text-stone-700 font-semibold text-xs">
+                          <Clock className="w-3.5 h-3.5 text-teal-700 shrink-0" />
+                          <span>Janela Operacional de Retirada:</span>
+                        </div>
+                        <div className="pl-5 text-[11px] text-stone-800 space-y-0.5">
+                          <div><strong className="text-stone-900">Início:</strong> {formatDateTimeBR(res.pickupWindowStart)}</div>
+                          <div><strong className="text-stone-900">Término:</strong> {formatDateTimeBR(res.pickupWindowEnd)}</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Banner de Doação em Transporte aguardando confirmação */}
+                    {isInTransit && (
+                      <div className="p-4 bg-amber-50 rounded-2xl border border-amber-200 text-xs text-amber-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+                        <div className="flex items-start gap-2.5">
+                          <Truck className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
+                          <div>
+                            <div className="font-bold text-amber-950">
+                              Alimentos em Transporte — Aguardando Conferência de Recebimento
+                            </div>
+                            <p className="text-[11px] text-amber-800 mt-0.5">
+                              Retirada confirmada pelo transportador ({res.transporterName || 'Atribuído'}). Após receber a entrega, confirme para finalizar oficialmente a doação.
+                            </p>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => setConfirmDeliveryRes(res)}
+                          className="py-2.5 px-4 rounded-xl text-xs font-bold text-white bg-teal-700 hover:bg-teal-800 transition-colors flex items-center justify-center gap-1.5 shadow-2xs shrink-0"
+                        >
+                          <CheckCircle2 className="w-4 h-4" />
+                          Confirmar Recebimento
+                        </button>
+                      </div>
+                    )}
+
+                    {isConcluded && (
+                      <div className="p-3.5 bg-emerald-50 rounded-2xl border border-emerald-200 text-xs text-emerald-900 flex items-center gap-2 shadow-2xs">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <div>
+                          <strong>Doação Concluída com Sucesso!</strong> Alimentos recebidos e aproveitados socialmente.
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Linha do Tempo Visual Integrada */}
+                    {batch && (
+                      <div className="p-4 bg-white rounded-2xl border border-stone-200/80 shadow-2xs">
+                        <OperationTimeline
+                          batch={batch}
+                          reservation={res}
+                          pickup={linkedPickup}
+                          occurrences={batchOccurrences}
+                        />
+                      </div>
+                    )}
+
+                    {/* Informações da Decisão Administrativa */}
+                    {res.decidedAt && (
+                      <div
+                        className={`p-3.5 rounded-2xl border text-xs shadow-2xs ${
+                          res.status === 'APROVADA'
+                            ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                            : 'bg-rose-50 border-rose-200 text-rose-900'
+                        }`}
+                      >
+                        <div className="font-bold">
+                          {res.status === 'APROVADA' ? '✓ Homologada pelo Administrador' : '✕ Indeferida pelo Administrador'}
+                        </div>
+                        <p className="text-[11px] mt-0.5">
+                          Decidida por <em>{res.decidedBy || 'Admin'}</em> em{' '}
+                          {formatDateTimeBR(res.decidedAt)}
+                          {res.decisionNotes && <span> — "{res.decisionNotes}"</span>}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Histórico de cancelamento */}
+                    {res.status === 'CANCELADA' && (
+                      <div className="p-3.5 rounded-2xl bg-stone-100 border border-stone-200 text-xs text-stone-600">
+                        <strong>Cancelada em:</strong> {formatDateTimeBR(res.canceledAt || res.requestedAt)}
+                        {res.cancelReason && <p className="italic text-[11px] mt-0.5">Motivo: "{res.cancelReason}"</p>}
+                      </div>
+                    )}
+
+                    {/* Ações Operacionais Permitidas */}
+                    <div className="flex flex-wrap items-center justify-end gap-2 pt-2 border-t border-stone-200/60">
                       <button
                         type="button"
-                        onClick={() => setConfirmDeliveryRes(res)}
-                        className="py-2.5 px-4 rounded-xl text-xs font-bold text-white bg-teal-700 hover:bg-teal-800 transition-colors flex items-center justify-center gap-1.5 shadow-2xs shrink-0"
+                        onClick={() => setOccurrenceTarget({ operationId: res.id, batchId: res.batchId, foodName: res.foodName })}
+                        className="px-3.5 py-2 rounded-xl text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-colors flex items-center gap-1.5"
                       >
-                        <CheckCircle2 className="w-4 h-4" />
-                        Confirmar Recebimento
+                        <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
+                        Registrar Ocorrência
                       </button>
+
+                      {canCancel && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCancelReason('');
+                            setCancelModalRes(res);
+                          }}
+                          className="px-3.5 py-2 rounded-xl text-xs font-semibold text-stone-600 bg-white hover:bg-stone-100 border border-stone-200 transition-colors shadow-2xs"
+                        >
+                          Cancelar Reserva
+                        </button>
+                      )}
                     </div>
-                  )}
-
-                  {isConcluded && (
-                    <div className="p-3 bg-emerald-50 rounded-2xl border border-emerald-200 text-xs text-emerald-900 flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                      <div>
-                        <strong>Doação Concluída com Sucesso!</strong> Alimentos recebidos e aproveitados socialmente.
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Linha do Tempo Visual Integrada */}
-                  {batch && (
-                    <OperationTimeline
-                      batch={batch}
-                      reservation={res}
-                      pickup={linkedPickup}
-                      occurrences={batchOccurrences}
-                    />
-                  )}
-
-                  {/* Informações da Decisão Administrativa */}
-                  {res.decidedAt && (
-                    <div
-                      className={`p-3 rounded-2xl border text-xs ${
-                        res.status === 'APROVADA'
-                          ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
-                          : 'bg-rose-50 border-rose-200 text-rose-900'
-                      }`}
-                    >
-                      <div className="font-bold">
-                        {res.status === 'APROVADA' ? '✓ Homologada pelo Administrador' : '✕ Indeferida pelo Administrador'}
-                      </div>
-                      <p className="text-[11px] mt-0.5">
-                        Decidida por <em>{res.decidedBy || 'Admin'}</em> em{' '}
-                        {formatDateTimeBR(res.decidedAt)}
-                        {res.decisionNotes && <span> — "{res.decisionNotes}"</span>}
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Histórico de cancelamento */}
-                  {res.status === 'CANCELADA' && (
-                    <div className="p-3 rounded-2xl bg-stone-100 border border-stone-200 text-xs text-stone-600">
-                      <strong>Cancelada em:</strong> {formatDateTimeBR(res.canceledAt || res.requestedAt)}
-                      {res.cancelReason && <p className="italic text-[11px] mt-0.5">Motivo: "{res.cancelReason}"</p>}
-                    </div>
-                  )}
-                </div>
-
-                {/* Ações */}
-                <div className="flex flex-col sm:flex-row md:flex-col items-end gap-2 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => setOccurrenceTarget({ operationId: res.id, batchId: res.batchId, foodName: res.foodName })}
-                    className="px-3 py-1.5 rounded-xl text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-colors flex items-center gap-1"
-                  >
-                    <AlertTriangle className="w-3.5 h-3.5" />
-                    Registrar Ocorrência
-                  </button>
-
-                  {canCancel && (
-                    <button
-                      onClick={() => {
-                        setCancelReason('');
-                        setCancelModalRes(res);
-                      }}
-                      className="px-3.5 py-1.5 rounded-xl text-xs font-semibold text-stone-600 bg-stone-100 hover:bg-stone-200 border border-stone-200 transition-colors"
-                    >
-                      Cancelar Reserva
-                    </button>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
             );
           })}
