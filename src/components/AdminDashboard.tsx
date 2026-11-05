@@ -43,6 +43,7 @@ import {
 
 import { AdminReservationsTab } from './AdminReservationsTab';
 import { AdminUserActivityModal } from './AdminUserActivityModal';
+import { AdminManagementTab } from './AdminManagementTab';
 import { formatDateBR, formatDateTimeBR } from '../utils/dateUtils';
 
 interface AdminDashboardProps {
@@ -55,7 +56,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToHome }) 
   const [profiles, setProfiles] = useState<UserProfileDoc[]>([]);
   const [users, setUsers] = useState<UserAccount[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'profiles' | 'reservations' | 'users'>('reservations');
+  const [activeTab, setActiveTab] = useState<'profiles' | 'reservations' | 'users' | 'admins'>('reservations');
 
   // Filtros
   const [statusFilter, setStatusFilter] = useState<'ALL' | ProfileStatus>('PENDENTE');
@@ -421,6 +422,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToHome }) 
           <Users className="w-4 h-4" />
           Contas Cadastradas ({users.length})
         </button>
+
+        {isOwner && (
+          <button
+            onClick={() => setActiveTab('admins')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-colors flex items-center gap-2 ${
+              activeTab === 'admins'
+                ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                : 'text-stone-600 hover:bg-stone-100'
+            }`}
+          >
+            <Crown className="w-4 h-4 text-amber-700" />
+            Gerenciar Administradores
+          </button>
+        )}
       </div>
 
       {activeTab === 'reservations' && <AdminReservationsTab />}
@@ -660,6 +675,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToHome }) 
             })}
           </div>
         </div>
+      )}
+
+      {activeTab === 'admins' && isOwner && (
+        <AdminManagementTab users={users} onRefreshUsers={loadUsers} />
       )}
 
       {/* Modal de Rejeição com Motivo */}
