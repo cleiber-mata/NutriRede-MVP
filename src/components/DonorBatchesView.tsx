@@ -13,7 +13,8 @@ import {
   Scale,
   Sparkles,
   Info,
-  Truck
+  Truck,
+  ChevronDown
 } from 'lucide-react';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '../firebase/config';
@@ -37,6 +38,11 @@ export const DonorBatchesView: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [cancelingId, setCancelingId] = useState<string | null>(null);
   const [actionMsg, setActionMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+  const [expandedBatchId, setExpandedBatchId] = useState<string | null>(null);
+
+  const toggleExpand = (batchId: string) => {
+    setExpandedBatchId((prev) => (prev === batchId ? null : batchId));
+  };
 
   useEffect(() => {
     if (!currentUser) return;
@@ -332,7 +338,7 @@ export const DonorBatchesView: React.FC = () => {
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-3">
           {filteredBatches.map((batch) => {
             const statusMeta = BATCH_STATUS_CONFIG[batch.status];
             const isOperating = cancelingId === batch.id;
@@ -343,185 +349,324 @@ export const DonorBatchesView: React.FC = () => {
             const batchOccurrences = occurrences.filter((o) => o.batchId === batch.id || (linkedRes && o.operationId === linkedRes.id) || (linkedPickup && o.operationId === linkedPickup.id));
             const isApprovedReservation =
               batch.activeReservationStatus === 'APROVADA' || linkedRes?.status === 'APROVADA';
+            const isExpanded = expandedBatchId === batch.id;
+
+            let displayStatusLabel = statusMeta?.label || batch.status;
+            let displayBadgeClass = statusMeta?.badgeClass || 'bg-stone-100 text-stone-700 border-stone-300';
+
+            if (batch.status === 'RESERVADO') {
+              if (isApprovedReservation) {
+                displayStatusLabel = 'Reserva Aprovada';
+                displayBadgeClass = 'bg-emerald-100 text-emerald-800 border-emerald-300';
+              } else {
+                displayStatusLabel = 'Reserva Solicitada';
+                displayBadgeClass = 'bg-amber-100 text-amber-900 border-amber-300';
+              }
+            } else if (batch.status === 'CONCLUIDO') {
+              displayStatusLabel = 'Concluído';
+              displayBadgeClass = 'bg-emerald-100 text-emerald-800 border-emerald-300';
+            } else if (batch.status === 'EM_TRANSPORTE') {
+              displayStatusLabel = 'Em Transporte';
+              displayBadgeClass = 'bg-blue-100 text-blue-900 border-blue-300';
+            } else if (batch.status === 'DISPONIVEL') {
+              displayStatusLabel = 'Disponível';
+              displayBadgeClass = 'bg-emerald-100 text-emerald-800 border-emerald-300';
+            } else if (batch.status === 'CANCELADO') {
+              displayStatusLabel = 'Cancelado';
+              displayBadgeClass = 'bg-stone-100 text-stone-700 border-stone-300';
+            } else if (batch.status === 'EXPIRADO') {
+              displayStatusLabel = 'Expirado';
+              displayBadgeClass = 'bg-rose-100 text-rose-800 border-rose-300';
+            }
 
             return (
               <div
                 key={batch.id}
-                className="bg-white rounded-3xl p-6 border border-stone-200 shadow-2xs hover:shadow-xs transition-shadow flex flex-col justify-between space-y-4"
+                className={`bg-white rounded-2xl sm:rounded-3xl border transition-all duration-200 overflow-hidden ${
+                  isExpanded
+                    ? 'border-emerald-500 shadow-md ring-1 ring-emerald-500/20'
+                    : 'border-stone-200 shadow-2xs hover:border-emerald-300 hover:shadow-xs'
+                }`}
               >
-                <div>
-                  <div className="flex items-start justify-between gap-3 mb-2">
-                    <div>
-                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-stone-100 text-stone-700">
-                        {batch.category}
-                      </span>
-                      <h3 className="text-lg font-bold text-stone-900 mt-1">{batch.foodName}</h3>
-                    </div>
-
-                    {batch.status === 'RESERVADO' ? (
-                      isApprovedReservation ? (
-                        <span className="text-xs px-2.5 py-1 rounded-full font-bold border shrink-0 bg-emerald-100 text-emerald-800 border-emerald-300 flex items-center gap-1">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                          Reserva Aprovada
-                        </span>
-                      ) : (
-                        <span className="text-xs px-2.5 py-1 rounded-full font-bold border shrink-0 bg-amber-100 text-amber-900 border-amber-300 flex items-center gap-1">
-                          <Clock className="w-3.5 h-3.5 text-amber-700" />
-                          Reserva Solicitada
-                        </span>
-                      )
-                    ) : (
-                      <span
-                        className={`text-xs px-2.5 py-1 rounded-full font-bold border shrink-0 ${statusMeta.badgeClass}`}
-                      >
-                        {statusMeta.label}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="p-3 bg-stone-50 rounded-2xl border border-stone-100 space-y-2 text-xs text-stone-600">
-                    <div className="flex items-center justify-between">
-                      <span className="flex items-center gap-1.5 font-semibold text-stone-900">
-                        <Scale className="w-4 h-4 text-emerald-700" />
-                        Quantidade Ofertada:
-                      </span>
-                      <span className="font-extrabold text-stone-900 text-sm">
-                        {batch.quantity} {batch.unit}
+                {/* Linha Compacta Clicável (M46) */}
+                <button
+                  type="button"
+                  onClick={() => toggleExpand(batch.id)}
+                  aria-expanded={isExpanded}
+                  className="w-full text-left p-4 sm:p-5 flex items-center justify-between gap-3 sm:gap-4 transition-colors hover:bg-stone-50/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 group"
+                >
+                  <div className="flex items-center gap-2 sm:gap-3 flex-wrap sm:flex-nowrap flex-1 min-w-0">
+                    {/* Alimento */}
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Package className="w-4 h-4 text-emerald-700 shrink-0" />
+                      <span className="font-bold text-stone-900 text-sm sm:text-base font-serif truncate">
+                        {batch.foodName}
                       </span>
                     </div>
 
-                    <div className="flex items-center justify-between">
-                      <span className="flex items-center gap-1.5">
-                        <Calendar className="w-4 h-4 text-stone-400" />
-                        Validade:
-                      </span>
-                      <span className={`font-semibold ${isExpired ? 'text-rose-600' : 'text-stone-800'}`}>
+                    <span className="text-stone-300 hidden sm:inline select-none">|</span>
+
+                    {/* Quantidade */}
+                    <span className="text-xs font-bold text-emerald-900 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 shrink-0">
+                      {batch.quantity} {batch.unit}
+                    </span>
+
+                    <span className="text-stone-300 hidden sm:inline select-none">|</span>
+
+                    {/* Validade */}
+                    <span className="text-xs text-stone-600 shrink-0 flex items-center gap-1">
+                      <Calendar className="w-3.5 h-3.5 text-stone-400" />
+                      <span className={isExpired ? 'text-rose-600 font-semibold' : ''}>
                         {formatDateBR(batch.expirationDate)}
-                        {batch.consumptionDeadline && (
-                          <span className="text-amber-800 font-semibold ml-1">
-                            (consumo até {batch.consumptionDeadline.replace(':', 'h')})
-                          </span>
-                        )}
                         {isExpired && ' (Vencido)'}
                       </span>
-                    </div>
+                    </span>
 
-                    <div className="pt-2 border-t border-stone-200/60 space-y-1">
-                      <div className="flex items-center gap-1.5 text-stone-700 font-semibold text-xs">
-                        <Clock className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
-                        <span>Janela de Retirada:</span>
-                      </div>
-                      <div className="pl-5 text-[11px] text-stone-800 space-y-0.5">
-                        <div><strong className="text-stone-900">Início:</strong> {formatDateTimeBR(batch.pickupWindowStart)}</div>
-                        <div><strong className="text-stone-900">Término:</strong> {formatDateTimeBR(batch.pickupWindowEnd)}</div>
-                      </div>
-                    </div>
+                    <span className="text-stone-300 hidden sm:inline select-none">|</span>
 
-                    <div className="flex items-start gap-1.5 pt-1 border-t border-stone-200/60">
-                      <MapPin className="w-4 h-4 text-stone-400 shrink-0 mt-0.5" />
-                      <span className="text-[11px] text-stone-600 line-clamp-1">{batch.pickupAddress}</span>
+                    {/* Status Operacional Atual */}
+                    <div className="shrink-0">
+                      <span
+                        className={`text-xs px-2.5 py-0.5 rounded-full font-bold border inline-flex items-center gap-1 ${displayBadgeClass}`}
+                      >
+                        {batch.status === 'RESERVADO' && isApprovedReservation && (
+                          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                        )}
+                        {batch.status === 'RESERVADO' && !isApprovedReservation && (
+                          <Clock className="w-3 h-3 text-amber-700" />
+                        )}
+                        {batch.status === 'CONCLUIDO' && (
+                          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                        )}
+                        {batch.status === 'EM_TRANSPORTE' && (
+                          <Truck className="w-3 h-3 text-blue-600" />
+                        )}
+                        {displayStatusLabel}
+                      </span>
                     </div>
                   </div>
 
-                  {/* Informação sobre reserva vinculada com distinção clara de situações */}
-                  {batch.status === 'RESERVADO' && (
-                    isApprovedReservation ? (
-                      <div className="mt-3 p-3 bg-emerald-50 rounded-xl border border-emerald-300 text-xs text-emerald-950 space-y-1">
+                  {/* Ícone de Expansão / Recolhimento */}
+                  <div className="shrink-0 pl-1 sm:pl-2">
+                    <span
+                      className={`w-7 h-7 rounded-xl flex items-center justify-center transition-all duration-200 ${
+                        isExpanded
+                          ? 'bg-emerald-100 text-emerald-800 rotate-180'
+                          : 'bg-stone-100 text-stone-500 group-hover:bg-stone-200 group-hover:text-stone-800'
+                      }`}
+                      aria-hidden="true"
+                    >
+                      <ChevronDown className="w-4 h-4 transition-transform duration-200" />
+                    </span>
+                  </div>
+                </button>
+
+                {/* Detalhes Expansíveis */}
+                {isExpanded && (
+                  <div className="border-t border-stone-100 p-5 sm:p-6 bg-stone-50/40 space-y-5 animate-in fade-in slide-in-from-top-1 duration-150">
+                    {/* Grid com Categoria, Quantidade e Validade/Consumo */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 bg-white rounded-2xl border border-stone-200/80 text-xs text-stone-600 shadow-2xs">
+                      <div>
+                        <span className="text-[10px] uppercase font-bold text-stone-400 block">
+                          Categoria do Alimento
+                        </span>
+                        <span className="inline-block mt-1 text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-stone-100 text-stone-700">
+                          {batch.category}
+                        </span>
+                      </div>
+
+                      <div>
+                        <span className="text-[10px] uppercase font-bold text-stone-400 block">
+                          Quantidade Ofertada
+                        </span>
+                        <strong className="text-stone-900 text-sm">
+                          {batch.quantity} {batch.unit}
+                        </strong>
+                      </div>
+
+                      <div>
+                        <span className="text-[10px] uppercase font-bold text-stone-400 block">
+                          Data de Validade
+                        </span>
+                        <span className={`font-semibold ${isExpired ? 'text-rose-600' : 'text-stone-800'}`}>
+                          {formatDateBR(batch.expirationDate)}
+                          {batch.consumptionDeadline && (
+                            <span className="text-amber-800 font-semibold ml-1">
+                              (consumo até {batch.consumptionDeadline.replace(':', 'h')})
+                            </span>
+                          )}
+                          {isExpired && ' (Vencido)'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Condições de Conservação, Janela de Retirada e Endereço */}
+                    <div className="p-4 bg-white rounded-2xl border border-stone-200/80 text-xs text-stone-600 shadow-2xs space-y-3">
+                      {batch.storageCondition && (
+                        <div className="flex items-start gap-2">
+                          <Info className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
+                          <div>
+                            <span className="font-semibold text-stone-900 block">Condições de Conservação:</span>
+                            <span className="text-stone-700">{batch.storageCondition}</span>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="flex items-start gap-2 pt-2 border-t border-stone-100">
+                        <Clock className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
+                        <div className="space-y-0.5">
+                          <span className="font-semibold text-stone-900 block">Janela de Retirada:</span>
+                          <div className="text-[11px] text-stone-700">
+                            <div><strong className="text-stone-900">Início:</strong> {formatDateTimeBR(batch.pickupWindowStart)}</div>
+                            <div><strong className="text-stone-900">Término:</strong> {formatDateTimeBR(batch.pickupWindowEnd)}</div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-start gap-2 pt-2 border-t border-stone-100">
+                        <MapPin className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
+                        <div>
+                          <span className="font-semibold text-stone-900 block">Endereço de Retirada:</span>
+                          <span className="text-stone-700">{batch.pickupAddress}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Informação sobre reserva vinculada com distinção clara de situações */}
+                    {batch.status === 'RESERVADO' && (
+                      isApprovedReservation ? (
+                        <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-300 text-xs text-emerald-950 space-y-1">
+                          <div className="font-bold flex items-center gap-1.5 text-emerald-800">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                            {batch.activePickupId ? 'Coleta Aceita por Transportador' : 'Reserva Aprovada — Aguardando Transportador'}
+                          </div>
+                          <p className="text-[11px] text-emerald-900">
+                            Entidade Receptora: <strong>{batch.reservedByName || linkedRes?.receiverName || 'Entidade Homologada'}</strong>.
+                            {(batch.transporterName || linkedPickup?.transporterName) && (
+                              <span> • Transportador: <strong>{batch.transporterName || linkedPickup?.transporterName}</strong></span>
+                            )}
+                          </p>
+                          {linkedRes?.decidedAt && (
+                            <p className="text-[10px] text-emerald-700">
+                              Homologada em {formatDateTimeBR(linkedRes.decidedAt)} por {linkedRes.decidedBy || 'Administrador'}
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="p-4 bg-amber-50 rounded-2xl border border-amber-300 text-xs text-amber-950 space-y-1">
+                          <div className="font-bold flex items-center gap-1.5 text-amber-800">
+                            <Clock className="w-4 h-4 text-amber-700 shrink-0" />
+                            Reserva Solicitada — Aguardando Homologação Administrativa
+                          </div>
+                          <p className="text-[11px] text-amber-900">
+                            Solicitada pela entidade: <strong>{batch.reservedByName || linkedRes?.receiverName || 'Entidade Receptora'}</strong>. Em avaliação pela administração.
+                          </p>
+                          {linkedRes?.requestedAt && (
+                            <p className="text-[10px] text-amber-700">
+                              Solicitada em {formatDateTimeBR(linkedRes.requestedAt)}
+                            </p>
+                          )}
+                        </div>
+                      )
+                    )}
+
+                    {batch.status === 'EM_TRANSPORTE' && (
+                      <div className="p-4 bg-blue-50 rounded-2xl border border-blue-300 text-xs text-blue-950 space-y-1">
+                        <div className="font-bold flex items-center gap-1.5 text-blue-800">
+                          <Truck className="w-4 h-4 text-blue-600 shrink-0" />
+                          Alimentos Retirados — Em Transporte
+                        </div>
+                        <p className="text-[11px] text-blue-900">
+                          Retirada confirmada por <strong>{batch.transporterName || linkedPickup?.transporterName || 'Transportador'}</strong> e a caminho da entidade receptora ({batch.reservedByName || linkedRes?.receiverName || 'Entidade Receptora'}).
+                        </p>
+                        {batch.pickedUpAt && (
+                          <p className="text-[10px] text-blue-700">
+                            Retirada em {formatDateTimeBR(batch.pickedUpAt)}
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {batch.status === 'CONCLUIDO' && (
+                      <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-300 text-xs text-emerald-950 space-y-1">
                         <div className="font-bold flex items-center gap-1.5 text-emerald-800">
                           <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                          {batch.activePickupId ? 'Coleta Aceita por Transportador' : 'Reserva Aprovada — Aguardando Transportador'}
+                          Doação Concluída com Sucesso
                         </div>
                         <p className="text-[11px] text-emerald-900">
-                          Entidade Receptora: <strong>{batch.reservedByName || linkedRes?.receiverName || 'Entidade Homologada'}</strong>.
-                          {batch.transporterName && <span> • Transportador: <strong>{batch.transporterName}</strong></span>}
+                          Recebimento confirmado no destino pela entidade receptora ({batch.reservedByName || linkedRes?.receiverName || 'Entidade Receptora'}).
+                          {(batch.transporterName || linkedPickup?.transporterName) && (
+                            <span> • Entregue por: <strong>{batch.transporterName || linkedPickup?.transporterName}</strong></span>
+                          )}
                         </p>
-                        {linkedRes?.decidedAt && (
+                        {batch.completedAt && (
                           <p className="text-[10px] text-emerald-700">
-                            Homologada em {formatDateTimeBR(linkedRes.decidedAt)} por {linkedRes.decidedBy || 'Administrador'}
+                            Finalizada em {formatDateTimeBR(batch.completedAt)}
                           </p>
                         )}
                       </div>
-                    ) : (
-                      <div className="mt-3 p-3 bg-amber-50 rounded-xl border border-amber-300 text-xs text-amber-950 space-y-1">
-                        <div className="font-bold flex items-center gap-1.5 text-amber-800">
-                          <Clock className="w-4 h-4 text-amber-700 shrink-0" />
-                          Reserva Solicitada — Aguardando Homologação Administrativa
+                    )}
+
+                    {/* Linha do Tempo da Operação (RF13) */}
+                    {(linkedRes || batch.status !== 'DISPONIVEL') && (
+                      <div className="bg-white p-4 rounded-2xl border border-stone-200/80 shadow-2xs">
+                        <h4 className="text-xs font-bold text-stone-900 mb-3 flex items-center gap-1.5">
+                          <Clock className="w-3.5 h-3.5 text-emerald-700" />
+                          Linha do Tempo da Operação
+                        </h4>
+                        <OperationTimeline
+                          batch={batch}
+                          reservation={linkedRes}
+                          pickup={linkedPickup}
+                          occurrences={batchOccurrences}
+                        />
+                      </div>
+                    )}
+
+                    {/* Histórico e Ocorrências */}
+                    {batchOccurrences.length > 0 && (
+                      <div className="p-4 bg-amber-50/60 rounded-2xl border border-amber-200/80 text-xs space-y-2">
+                        <h5 className="font-bold text-amber-900 flex items-center gap-1.5">
+                          <AlertCircle className="w-3.5 h-3.5 text-amber-700" />
+                          Ocorrências Registradas ({batchOccurrences.length})
+                        </h5>
+                        <div className="space-y-1.5">
+                          {batchOccurrences.map((occ) => (
+                            <div key={occ.id} className="text-[11px] text-amber-950 bg-white/70 p-2 rounded-xl border border-amber-200/50">
+                              <span className="font-semibold">{occ.type}: {occ.description}</span>
+                              {occ.createdAt && (
+                                <span className="text-stone-400 text-[10px] block mt-0.5">
+                                  Registrado em {formatDateTimeBR(occ.createdAt)} por {occ.authorName || occ.authorProfile}
+                                </span>
+                              )}
+                            </div>
+                          ))}
                         </div>
-                        <p className="text-[11px] text-amber-900">
-                          Solicitada pela entidade: <strong>{batch.reservedByName || linkedRes?.receiverName || 'Entidade Receptora'}</strong>. Em avaliação pela administração.
-                        </p>
-                        {linkedRes?.requestedAt && (
-                          <p className="text-[10px] text-amber-700">
-                            Solicitada em {formatDateTimeBR(linkedRes.requestedAt)}
-                          </p>
-                        )}
                       </div>
-                    )
-                  )}
+                    )}
 
-                  {batch.status === 'EM_TRANSPORTE' && (
-                    <div className="mt-3 p-3 bg-blue-50 rounded-xl border border-blue-300 text-xs text-blue-950 space-y-1">
-                      <div className="font-bold flex items-center gap-1.5 text-blue-800">
-                        <Truck className="w-4 h-4 text-blue-600 shrink-0" />
-                        Alimentos Retirados — Em Transporte
-                      </div>
-                      <p className="text-[11px] text-blue-900">
-                        Retirada confirmada por <strong>{batch.transporterName || 'Transportador'}</strong> e a caminho da entidade receptora.
-                      </p>
-                      {batch.pickedUpAt && (
-                        <p className="text-[10px] text-blue-700">
-                          Retirada em {formatDateTimeBR(batch.pickedUpAt)}
-                        </p>
+                    {/* Rodapé com Ações e Data de Cadastro */}
+                    <div className="pt-3 border-t border-stone-200/80 flex items-center justify-between text-xs text-stone-500">
+                      <span className="text-[10px]">
+                        Cadastrado em {formatDateBR(batch.createdAt)}
+                      </span>
+
+                      {batch.status === 'DISPONIVEL' && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCancelBatch(batch.id, batch.foodName);
+                          }}
+                          disabled={isOperating}
+                          className="px-3.5 py-1.5 rounded-xl text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-colors disabled:opacity-50"
+                        >
+                          {isOperating ? 'Cancelando...' : 'Cancelar Oferta'}
+                        </button>
                       )}
                     </div>
-                  )}
-
-                  {batch.status === 'CONCLUIDO' && (
-                    <div className="mt-3 p-3 bg-emerald-50 rounded-xl border border-emerald-300 text-xs text-emerald-950 space-y-1">
-                      <div className="font-bold flex items-center gap-1.5 text-emerald-800">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                        Doação Concluída com Sucesso
-                      </div>
-                      <p className="text-[11px] text-emerald-900">
-                        Recebimento confirmado no destino pela entidade receptora ({batch.reservedByName || linkedRes?.receiverName}).
-                      </p>
-                      {batch.completedAt && (
-                        <p className="text-[10px] text-emerald-700">
-                          Finalizada em {formatDateTimeBR(batch.completedAt)}
-                        </p>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Linha do Tempo da Operação (RF13) */}
-                  {(linkedRes || batch.status !== 'DISPONIVEL') && (
-                    <div className="mt-3">
-                      <OperationTimeline
-                        batch={batch}
-                        reservation={linkedRes}
-                        pickup={linkedPickup}
-                        occurrences={batchOccurrences}
-                      />
-                    </div>
-                  )}
-                </div>
-
-                {/* Ações */}
-                <div className="pt-3 border-t border-stone-100 flex items-center justify-between text-xs text-stone-500">
-                  <span className="text-[10px]">
-                    Cadastrado em {formatDateBR(batch.createdAt)}
-                  </span>
-
-                  {batch.status === 'DISPONIVEL' && (
-                    <button
-                      onClick={() => handleCancelBatch(batch.id, batch.foodName)}
-                      disabled={isOperating}
-                      className="px-3 py-1.5 rounded-xl text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-colors disabled:opacity-50"
-                    >
-                      {isOperating ? 'Cancelando...' : 'Cancelar Oferta'}
-                    </button>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
             );
           })}

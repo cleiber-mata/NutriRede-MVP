@@ -13,7 +13,9 @@ import {
   Sparkles,
   ArrowRight,
   Filter,
-  X
+  X,
+  ChevronDown,
+  Info
 } from 'lucide-react';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '../firebase/config';
@@ -45,6 +47,13 @@ export const ReceiverExploreView: React.FC<ReceiverExploreViewProps> = ({
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<'ALL' | FoodCategory>('ALL');
+
+  // M50: Apenas uma oferta expandida por vez. Todas iniciam recolhidas.
+  const [expandedBatchId, setExpandedBatchId] = useState<string | null>(null);
+
+  const toggleExpand = (batchId: string) => {
+    setExpandedBatchId((prev) => (prev === batchId ? null : batchId));
+  };
 
   // Modal de confirmação de reserva
   const [reservingBatch, setReservingBatch] = useState<FoodBatch | null>(null);
@@ -135,6 +144,13 @@ export const ReceiverExploreView: React.FC<ReceiverExploreViewProps> = ({
       b.pickupAddress.toLowerCase().includes(searchTerm.toLowerCase());
     return matchCat && matchSearch;
   });
+
+  // M50: Ajusta o estado de expansão caso a oferta atualmente expandida deixe de estar visível
+  useEffect(() => {
+    if (expandedBatchId && !filtered.some((b) => b.id === expandedBatchId)) {
+      setExpandedBatchId(null);
+    }
+  }, [filtered, expandedBatchId]);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
@@ -232,100 +248,221 @@ export const ReceiverExploreView: React.FC<ReceiverExploreViewProps> = ({
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="space-y-3">
           {filtered.map((batch) => {
             // Previne desvio de fuso horário UTC: se YYYY-MM-DD, avalia no final do dia local
             const expDateStr = batch.expirationDate.includes('T') ? batch.expirationDate : `${batch.expirationDate}T23:59:59`;
             const expDate = new Date(expDateStr);
             const daysLeft = Math.max(0, Math.ceil((expDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
+            const isExpanded = expandedBatchId === batch.id;
 
             return (
               <div
                 key={batch.id}
-                className="bg-white rounded-3xl p-6 border border-stone-200 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between space-y-4"
+                className={`bg-white rounded-2xl sm:rounded-3xl border transition-all duration-200 overflow-hidden ${
+                  isExpanded
+                    ? 'border-teal-500 shadow-md ring-1 ring-teal-500/20'
+                    : 'border-stone-200 shadow-2xs hover:border-teal-300 hover:shadow-xs'
+                }`}
               >
-                <div>
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-teal-50 text-teal-800 border border-teal-200">
-                      {batch.category}
+                {/* Linha Compacta Clicável (M50) */}
+                <button
+                  type="button"
+                  onClick={() => toggleExpand(batch.id)}
+                  aria-expanded={isExpanded}
+                  aria-controls={`batch-details-${batch.id}`}
+                  className="w-full text-left p-4 sm:p-5 flex items-center justify-between gap-3 sm:gap-4 transition-colors hover:bg-stone-50/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 group"
+                >
+                  <div className="flex items-center gap-2 sm:gap-3 flex-wrap sm:flex-nowrap flex-1 min-w-0">
+                    {/* Nome do alimento */}
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Package className="w-4 h-4 text-teal-700 shrink-0" />
+                      <span className="font-bold text-stone-900 text-sm sm:text-base font-serif truncate">
+                        {batch.foodName}
+                      </span>
+                    </div>
+
+                    <span className="text-stone-300 hidden sm:inline select-none">|</span>
+
+                    {/* Quantidade e unidade */}
+                    <span className="text-xs font-bold text-teal-900 bg-teal-50 px-2.5 py-0.5 rounded-full border border-teal-200 shrink-0">
+                      {batch.quantity} {batch.unit}
                     </span>
-                    <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                      Disponível
+
+                    <span className="text-stone-300 hidden sm:inline select-none">|</span>
+
+                    {/* Data de validade */}
+                    <span className="text-xs text-stone-600 shrink-0 flex items-center gap-1">
+                      <Calendar className="w-3.5 h-3.5 text-stone-400" />
+                      <span className={daysLeft <= 2 ? 'text-amber-700 font-semibold' : ''}>
+                        {formatDateBR(batch.expirationDate)}
+                        {daysLeft <= 2 && (
+                          <span className="text-[10px] ml-1 font-normal text-amber-700">
+                            ({daysLeft === 0 ? 'Hoje' : `${daysLeft}d restantes`})
+                          </span>
+                        )}
+                      </span>
                     </span>
+
+                    <span className="text-stone-300 hidden sm:inline select-none">|</span>
+
+                    {/* Status de disponibilidade */}
+                    <div className="shrink-0">
+                      <span className="text-xs px-2.5 py-0.5 rounded-full font-bold border inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 border-emerald-200">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                        Disponível
+                      </span>
+                    </div>
                   </div>
 
-                  <h3 className="text-lg font-bold text-stone-900 leading-tight mb-1">
-                    {batch.foodName}
-                  </h3>
-
-                  <p className="text-xs text-stone-500 font-medium mb-3">
-                    Doador: <strong className="text-stone-700">{batch.donorName}</strong>
-                  </p>
-
-                  <div className="p-3.5 bg-stone-50 rounded-2xl border border-stone-100 space-y-2 text-xs text-stone-600">
-                    <div className="flex items-center justify-between">
-                      <span className="flex items-center gap-1.5 font-semibold text-stone-900">
-                        <Scale className="w-4 h-4 text-teal-700" />
-                        Quantidade:
-                      </span>
-                      <span className="font-extrabold text-stone-900 text-sm">
-                        {batch.quantity} {batch.unit}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <span className="flex items-center gap-1.5">
-                        <Calendar className="w-4 h-4 text-stone-400" />
-                        Validade:
-                      </span>
-                      <span
-                        className={`font-semibold ${
-                          daysLeft <= 2 ? 'text-amber-700 font-bold' : 'text-stone-800'
-                        }`}
-                      >
-                        {formatDateBR(batch.expirationDate)}{' '}
-                        <span className="text-[10px] font-normal text-stone-500">
-                          ({daysLeft === 0 ? 'Hoje' : `${daysLeft}d restantes`})
-                        </span>
-                      </span>
-                    </div>
-
-                    <div className="pt-2 border-t border-stone-200/60 space-y-1">
-                      <div className="flex items-center gap-1.5 text-stone-700 font-semibold text-xs">
-                        <Clock className="w-3.5 h-3.5 text-teal-700 shrink-0" />
-                        <span>Janela de Retirada:</span>
-                      </div>
-                      <div className="pl-5 text-[11px] text-stone-800 space-y-0.5">
-                        <div><strong className="text-stone-900">Início:</strong> {formatDateTimeBR(batch.pickupWindowStart)}</div>
-                        <div><strong className="text-stone-900">Término:</strong> {formatDateTimeBR(batch.pickupWindowEnd)}</div>
-                      </div>
-                    </div>
-
-                    <div className="pt-2 border-t border-stone-200/60 space-y-1">
-                      <div className="flex items-start gap-1.5">
-                        <MapPin className="w-4 h-4 text-stone-400 shrink-0 mt-0.5" />
-                        <span className="text-[11px] text-stone-600 line-clamp-1">
-                          {batch.pickupAddress}
-                        </span>
-                      </div>
-                      <div className="text-[10px] text-stone-500 italic">
-                        Conservação: {batch.storageCondition}
-                      </div>
-                    </div>
+                  {/* Ícone para expandir/recolher */}
+                  <div className="shrink-0 pl-1 sm:pl-2">
+                    <span
+                      className={`w-7 h-7 rounded-xl flex items-center justify-center transition-all duration-200 ${
+                        isExpanded
+                          ? 'bg-teal-100 text-teal-800 rotate-180'
+                          : 'bg-stone-100 text-stone-500 group-hover:bg-stone-200 group-hover:text-stone-800'
+                      }`}
+                      aria-hidden="true"
+                    >
+                      <ChevronDown className="w-4 h-4 transition-transform duration-200" />
+                    </span>
                   </div>
-                </div>
+                </button>
 
-                <div className="pt-2">
-                  <button
-                    onClick={() => {
-                      setReserveError(null);
-                      setReservingBatch(batch);
-                    }}
-                    className="w-full py-2.5 px-4 rounded-xl bg-teal-700 hover:bg-teal-800 text-white font-semibold text-xs shadow-xs transition-colors flex items-center justify-center gap-1.5"
+                {/* Detalhes Expansíveis (M50) */}
+                {isExpanded && (
+                  <div
+                    id={`batch-details-${batch.id}`}
+                    className="border-t border-stone-100 p-5 sm:p-6 bg-stone-50/40 space-y-4 animate-in fade-in slide-in-from-top-1 duration-150"
                   >
-                    <span>Solicitar Reserva</span>
-                  </button>
-                </div>
+                    {/* Grid com Categoria, Doador, Quantidade e Validade */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 p-4 bg-white rounded-2xl border border-stone-200/80 text-xs text-stone-600 shadow-2xs">
+                      <div>
+                        <span className="text-[10px] uppercase font-bold text-stone-400 block">
+                          Categoria do Alimento
+                        </span>
+                        <span className="inline-block mt-1 text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-teal-50 text-teal-800 border border-teal-200">
+                          {batch.category}
+                        </span>
+                      </div>
+
+                      <div>
+                        <span className="text-[10px] uppercase font-bold text-stone-400 block">
+                          Doador Responsável
+                        </span>
+                        <strong className="text-stone-900 text-sm block mt-0.5">
+                          {batch.donorName}
+                        </strong>
+                        {batch.donorEmail && (
+                          <span className="text-[11px] text-stone-500 block truncate">
+                            {batch.donorEmail}
+                          </span>
+                        )}
+                      </div>
+
+                      <div>
+                        <span className="text-[10px] uppercase font-bold text-stone-400 block">
+                          Quantidade Disponível
+                        </span>
+                        <strong className="text-stone-900 text-sm block mt-0.5">
+                          {batch.quantity} {batch.unit}
+                        </strong>
+                      </div>
+
+                      <div>
+                        <span className="text-[10px] uppercase font-bold text-stone-400 block">
+                          Data de Validade
+                        </span>
+                        <span
+                          className={`text-sm font-semibold block mt-0.5 ${
+                            daysLeft <= 2 ? 'text-amber-700 font-bold' : 'text-stone-800'
+                          }`}
+                        >
+                          {formatDateBR(batch.expirationDate)}
+                          <span className="text-xs font-normal text-stone-500 ml-1">
+                            ({daysLeft === 0 ? 'Hoje' : `${daysLeft}d restantes`})
+                          </span>
+                        </span>
+                        {batch.consumptionDeadline && (
+                          <span className="text-[11px] text-amber-800 font-semibold block mt-0.5">
+                            Horário-limite: {batch.consumptionDeadline.replace(':', 'h')}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Condições de Conservação, Janela de Retirada, Local e Observações */}
+                    <div className="p-4 bg-white rounded-2xl border border-stone-200/80 text-xs text-stone-600 shadow-2xs space-y-3">
+                      {batch.storageCondition && (
+                        <div className="flex items-start gap-2">
+                          <Thermometer className="w-4 h-4 text-teal-700 shrink-0 mt-0.5" />
+                          <div>
+                            <span className="font-semibold text-stone-900 block">Condições de Conservação:</span>
+                            <span className="text-stone-700">{batch.storageCondition}</span>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="flex items-start gap-2 pt-2 border-t border-stone-100">
+                        <Clock className="w-4 h-4 text-teal-700 shrink-0 mt-0.5" />
+                        <div className="space-y-0.5">
+                          <span className="font-semibold text-stone-900 block">Janela de Retirada:</span>
+                          <div className="text-[11px] text-stone-700">
+                            <div><strong className="text-stone-900">Início:</strong> {formatDateTimeBR(batch.pickupWindowStart)}</div>
+                            <div><strong className="text-stone-900">Término:</strong> {formatDateTimeBR(batch.pickupWindowEnd)}</div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-start gap-2 pt-2 border-t border-stone-100">
+                        <MapPin className="w-4 h-4 text-teal-700 shrink-0 mt-0.5" />
+                        <div>
+                          <span className="font-semibold text-stone-900 block">Local de Retirada:</span>
+                          <span className="text-stone-700">{batch.pickupAddress}</span>
+                        </div>
+                      </div>
+
+                      {((batch as any).notes || batch.fitForConsumption) && (
+                        <div className="flex items-start gap-2 pt-2 border-t border-stone-100">
+                          <Info className="w-4 h-4 text-teal-700 shrink-0 mt-0.5" />
+                          <div>
+                            <span className="font-semibold text-stone-900 block">Observações e Declarações:</span>
+                            {(batch as any).notes && (
+                              <p className="text-stone-700 mb-1">{(batch as any).notes}</p>
+                            )}
+                            {batch.fitForConsumption && (
+                              <span className="text-[11px] text-emerald-700 inline-flex items-center gap-1 font-medium">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                Alimento declarado próprio para consumo humano pelo doador.
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Ações: Botão Solicitar Reserva */}
+                    <div className="pt-1 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                      <div className="text-[11px] text-stone-500 flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+                        <span>Reserva com bloqueio atômico contra concorrência entre entidades.</span>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setReserveError(null);
+                          setReservingBatch(batch);
+                        }}
+                        className="w-full sm:w-auto py-2.5 px-5 rounded-xl bg-teal-700 hover:bg-teal-800 text-white font-semibold text-xs shadow-xs transition-colors flex items-center justify-center gap-2 shrink-0"
+                      >
+                        <CheckCircle2 className="w-4 h-4" />
+                        <span>Solicitar Reserva</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })}

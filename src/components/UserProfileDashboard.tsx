@@ -42,17 +42,20 @@ import { DeactivateProfileModal } from './DeactivateProfileModal';
 import { ChangeEmailModal } from './ChangeEmailModal';
 import { reactivateProfileByUser } from '../services/profileService';
 import { formatDateBR, formatDateTimeBR } from '../utils/dateUtils';
+import { NAVIGATION_CONFIG } from '../config/navigationConfig';
 
 interface UserProfileDashboardProps {
   onOpenRequestProfile: () => void;
   onOpenAdmin: () => void;
   onOpenInitialProfileSetup?: () => void;
+  hasSidebar?: boolean;
 }
 
 export const UserProfileDashboard: React.FC<UserProfileDashboardProps> = ({
   onOpenRequestProfile,
   onOpenAdmin,
   onOpenInitialProfileSetup,
+  hasSidebar,
 }) => {
   const {
     currentUser,
@@ -63,6 +66,8 @@ export const UserProfileDashboard: React.FC<UserProfileDashboardProps> = ({
     isAdmin,
     reloadUserData,
   } = useAuth();
+
+  const isSidebarActive = hasSidebar ?? NAVIGATION_CONFIG.ENABLE_SIDEBAR_NAV;
 
   const [receiverTab, setReceiverTab] = useState<'explore' | 'my_reservations'>('explore');
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -162,92 +167,94 @@ export const UserProfileDashboard: React.FC<UserProfileDashboardProps> = ({
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-      {/* Top Banner: Informações do Usuário Autenticado (Sem UID bruto) */}
-      <div className="bg-white rounded-3xl p-6 sm:p-8 border border-stone-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div className="flex items-start gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-emerald-700 to-teal-500 text-white flex items-center justify-center font-bold text-2xl shadow-sm">
-            {userAccount?.name?.charAt(0).toUpperCase() || currentUser.email?.charAt(0).toUpperCase() || 'U'}
-          </div>
-          <div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-2xl font-bold text-stone-900 font-serif">
-                {userAccount?.name || 'Usuário NutriRede'}
-              </h1>
-              <span className="text-xs px-2.5 py-0.5 rounded-full font-semibold bg-stone-100 text-stone-700 border border-stone-200">
-                Conta Única
-              </span>
-              {isAdmin && (
-                <span className="text-xs px-2.5 py-0.5 rounded-full font-bold bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-1">
-                  Administrador
-                </span>
-              )}
+      {/* Top Banner: Informações do Usuário Autenticado (Exibido apenas no modo clássico sem Sidebar) */}
+      {!isSidebarActive && (
+        <div className="bg-white rounded-3xl p-6 sm:p-8 border border-stone-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="flex items-start gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-emerald-700 to-teal-500 text-white flex items-center justify-center font-bold text-2xl shadow-sm">
+              {userAccount?.name?.charAt(0).toUpperCase() || currentUser.email?.charAt(0).toUpperCase() || 'U'}
             </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-2xl font-bold text-stone-900 font-serif">
+                  {userAccount?.name || 'Usuário NutriRede'}
+                </h1>
+                <span className="text-xs px-2.5 py-0.5 rounded-full font-semibold bg-stone-100 text-stone-700 border border-stone-200">
+                  Conta Única
+                </span>
+                {isAdmin && (
+                  <span className="text-xs px-2.5 py-0.5 rounded-full font-bold bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-1">
+                    Administrador
+                  </span>
+                )}
+              </div>
 
-            <div className="flex items-center gap-4 text-xs text-stone-500 mt-2 flex-wrap">
-              <span className="flex items-center gap-1">
-                <Mail className="w-3.5 h-3.5" />
-                {currentUser.email}
-              </span>
-              {userAccount?.phone && (
+              <div className="flex items-center gap-4 text-xs text-stone-500 mt-2 flex-wrap">
                 <span className="flex items-center gap-1">
-                  <Phone className="w-3.5 h-3.5" />
-                  {userAccount.phone}
+                  <Mail className="w-3.5 h-3.5" />
+                  {currentUser.email}
                 </span>
-              )}
-              {userAccount?.address && (
+                {userAccount?.phone && (
+                  <span className="flex items-center gap-1">
+                    <Phone className="w-3.5 h-3.5" />
+                    {userAccount.phone}
+                  </span>
+                )}
+                {userAccount?.address && (
+                  <span className="flex items-center gap-1">
+                    <MapPin className="w-3.5 h-3.5" />
+                    {userAccount.address}
+                  </span>
+                )}
                 <span className="flex items-center gap-1">
-                  <MapPin className="w-3.5 h-3.5" />
-                  {userAccount.address}
+                  <Calendar className="w-3.5 h-3.5" />
+                  Cadastrado em {formatDateBR(userAccount?.createdAt)}
                 </span>
-              )}
-              <span className="flex items-center gap-1">
-                <Calendar className="w-3.5 h-3.5" />
-                Cadastrado em {formatDateBR(userAccount?.createdAt)}
-              </span>
+              </div>
             </div>
+          </div>
+
+          {/* Status de Perfis & Ações Rápidas */}
+          <div className="flex flex-wrap items-center gap-2 pt-2 md:pt-0 border-t md:border-t-0 border-stone-100">
+            <button
+              onClick={() => setIsEditModalOpen(true)}
+              className="px-3.5 py-2 rounded-xl text-xs font-semibold text-stone-700 bg-stone-100 hover:bg-stone-200 border border-stone-300 flex items-center gap-1.5 transition-colors"
+            >
+              <Edit3 className="w-4 h-4 text-stone-600" />
+              Editar Meus Dados
+            </button>
+
+            <button
+              onClick={() => setIsChangeEmailOpen(true)}
+              className="px-3.5 py-2 rounded-xl text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 flex items-center gap-1.5 transition-colors"
+              title="Alteração segura com reautenticação e validação no Firebase Authentication"
+            >
+              <KeyRound className="w-4 h-4 text-blue-600" />
+              Alterar E-mail de Acesso
+            </button>
+
+            {userProfiles.length < 3 && (
+              <button
+                onClick={onOpenRequestProfile}
+                className="px-3.5 py-2 rounded-xl text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 flex items-center gap-1.5 transition-colors"
+              >
+                <PlusCircle className="w-4 h-4" />
+                Solicitar Perfil Adicional
+              </button>
+            )}
+
+            {isAdmin && (
+              <button
+                onClick={onOpenAdmin}
+                className="px-3.5 py-2 rounded-xl text-xs font-semibold text-amber-900 bg-amber-100 hover:bg-amber-200 border border-amber-300 flex items-center gap-1.5 transition-colors"
+              >
+                <ShieldAlert className="w-4 h-4 text-amber-700" />
+                Painel de Aprovações
+              </button>
+            )}
           </div>
         </div>
-
-        {/* Status de Perfis & Ações Rápidas */}
-        <div className="flex flex-wrap items-center gap-2 pt-2 md:pt-0 border-t md:border-t-0 border-stone-100">
-          <button
-            onClick={() => setIsEditModalOpen(true)}
-            className="px-3.5 py-2 rounded-xl text-xs font-semibold text-stone-700 bg-stone-100 hover:bg-stone-200 border border-stone-300 flex items-center gap-1.5 transition-colors"
-          >
-            <Edit3 className="w-4 h-4 text-stone-600" />
-            Editar Meus Dados
-          </button>
-
-          <button
-            onClick={() => setIsChangeEmailOpen(true)}
-            className="px-3.5 py-2 rounded-xl text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 flex items-center gap-1.5 transition-colors"
-            title="Alteração segura com reautenticação e validação no Firebase Authentication"
-          >
-            <KeyRound className="w-4 h-4 text-blue-600" />
-            Alterar E-mail de Acesso
-          </button>
-
-          {userProfiles.length < 3 && (
-            <button
-              onClick={onOpenRequestProfile}
-              className="px-3.5 py-2 rounded-xl text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 flex items-center gap-1.5 transition-colors"
-            >
-              <PlusCircle className="w-4 h-4" />
-              Solicitar Perfil Adicional
-            </button>
-          )}
-
-          {isAdmin && (
-            <button
-              onClick={onOpenAdmin}
-              className="px-3.5 py-2 rounded-xl text-xs font-semibold text-amber-900 bg-amber-100 hover:bg-amber-200 border border-amber-300 flex items-center gap-1.5 transition-colors"
-            >
-              <ShieldAlert className="w-4 h-4 text-amber-700" />
-              Painel de Aprovações
-            </button>
-          )}
-        </div>
-      </div>
+      )}
 
       {/* Alerta de Feedback */}
       {feedbackMsg && (
@@ -270,24 +277,243 @@ export const UserProfileDashboard: React.FC<UserProfileDashboardProps> = ({
         </div>
       )}
 
-      {/* Seção Central: RF02 - Consulta e Seleção de Perfis */}
-      <div>
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-2">
-          <div>
-            <h2 className="text-xl font-bold text-stone-900 font-serif">
-              Perfis Associados à sua Conta
-            </h2>
-            <p className="text-xs text-stone-500">
-              Uma mesma conta pode atuar em múltiplos papéis. Clique em um perfil para torná-lo ativo sem precisar fazer novo login.
-            </p>
+      {/* Seção de Perfis: Modo Clássico vs Modo com Menu Lateral (M49) */}
+      {!isSidebarActive ? (
+        /* Modo Clássico: Grade de Perfis Completa (RF02) */
+        <div>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-2">
+            <div>
+              <h2 className="text-xl font-bold text-stone-900 font-serif">
+                Perfis Associados à sua Conta
+              </h2>
+              <p className="text-xs text-stone-500">
+                Uma mesma conta pode atuar em múltiplos papéis. Clique em um perfil para torná-lo ativo sem precisar fazer novo login.
+              </p>
+            </div>
+            <span className="text-xs text-stone-500 font-medium self-start sm:self-center">
+              {userProfiles.length} de 3 perfis cadastrados
+            </span>
           </div>
-          <span className="text-xs text-stone-500 font-medium self-start sm:self-center">
-            {userProfiles.length} de 3 perfis cadastrados
-          </span>
-        </div>
 
-        {/* Grade de Perfis */}
-        {userProfiles.length === 0 ? (
+          {/* Grade de Perfis */}
+          {userProfiles.length === 0 ? (
+            <div className="bg-amber-50/70 border-2 border-dashed border-amber-300 rounded-3xl p-8 text-center space-y-3">
+              <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center mx-auto">
+                <ShieldAlert className="w-6 h-6" />
+              </div>
+              <h3 className="text-lg font-bold text-amber-950 font-serif">
+                Nenhum perfil de atuação selecionado ainda
+              </h3>
+              <p className="text-xs sm:text-sm text-amber-800 max-w-lg mx-auto leading-relaxed">
+                Sua conta Google está autenticada, mas você ainda não definiu seus papéis no NutriRede.
+                Selecione pelo menos um perfil (Doador, Entidade Receptora ou Transportador) para encaminhar seu cadastro para homologação.
+              </p>
+              {onOpenInitialProfileSetup && (
+                <div className="pt-2">
+                  <button
+                    onClick={onOpenInitialProfileSetup}
+                    className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow-md transition-colors inline-flex items-center gap-2"
+                  >
+                    <PlusCircle className="w-4 h-4" />
+                    Definir Meus Perfis de Atuação Agora
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+              {userProfiles.map((profile) => {
+                const meta = PROFILE_DEFINITIONS[profile.profileType];
+                const statusConfig = STATUS_CONFIG[profile.status];
+                const isActive = activeProfile?.id === profile.id;
+                const isApproved = profile.status === 'APROVADO';
+                const isDeactivated = profile.status === 'DESATIVADO';
+                const isDetailsOpen = !!expandedProfileDetails[profile.id];
+
+                return (
+                  <div
+                    key={profile.id}
+                    onClick={() => {
+                      if (!isDeactivated && !isActive) {
+                        switchActiveProfileType(profile.profileType);
+                      }
+                    }}
+                    className={`relative rounded-2xl border transition-all duration-200 overflow-hidden flex flex-col justify-between ${
+                      isActive
+                        ? 'border-emerald-600 bg-emerald-50/25 shadow-xs ring-2 ring-emerald-500/20'
+                        : isDeactivated
+                        ? 'border-stone-200 bg-stone-50/80 opacity-80'
+                        : 'border-stone-200 bg-white hover:border-emerald-300 hover:shadow-2xs cursor-pointer'
+                    }`}
+                  >
+                    {/* Faixa superior do Perfil Ativo */}
+                    {isActive && (
+                      <div className="bg-emerald-700 text-white text-[10px] font-bold uppercase tracking-wider px-3 py-0.5 flex items-center justify-between">
+                        <span className="flex items-center gap-1">
+                          <Check className="w-3 h-3" />
+                          Perfil Ativo
+                        </span>
+                        <span className="text-[9px] font-normal opacity-90">Em operação no painel</span>
+                      </div>
+                    )}
+
+                    {/* Face Compacta do Cartão (sempre visível) */}
+                    <div className="p-3.5 sm:p-4 space-y-2.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div
+                            className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                              isActive ? 'bg-emerald-100 text-emerald-800' : 'bg-stone-100 text-stone-700'
+                            }`}
+                          >
+                            {getProfileIcon(profile.profileType)}
+                          </div>
+                          <div className="min-w-0">
+                            <h3 className="text-sm font-bold text-stone-900 truncate font-serif">
+                              {meta?.title || profile.profileType}
+                            </h3>
+                            <span className="text-[11px] text-stone-500 truncate block">
+                              {meta?.subtitle || 'Perfil do NutriRede'}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="shrink-0">
+                          {getStatusBadge(profile.status)}
+                        </div>
+                      </div>
+
+                      {/* Ações Compactas e Separadas: Selecionar vs Ver Detalhes */}
+                      <div className="pt-2 border-t border-stone-100 flex items-center justify-between gap-2">
+                        {/* Ação 1: Selecionar Perfil */}
+                        {isActive ? (
+                          <span className="text-[11px] font-bold text-emerald-800 bg-emerald-100/90 px-2.5 py-1 rounded-lg border border-emerald-300 flex items-center gap-1">
+                            <Check className="w-3.5 h-3.5" />
+                            Selecionado
+                          </span>
+                        ) : isDeactivated ? (
+                          <span className="text-[11px] font-medium text-stone-500 bg-stone-100 px-2.5 py-1 rounded-lg flex items-center gap-1">
+                            <PowerOff className="w-3 h-3 text-stone-400" />
+                            Desativado
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              switchActiveProfileType(profile.profileType);
+                            }}
+                            className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 bg-white hover:bg-emerald-50 border border-emerald-300 px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1 shadow-2xs"
+                          >
+                            <span>Selecionar</span>
+                            <ArrowRight className="w-3 h-3" />
+                          </button>
+                        )}
+
+                        {/* Ação 2: Ver / Ocultar Detalhes */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleProfileDetails(profile.id);
+                          }}
+                          className="text-[11px] font-semibold text-stone-600 hover:text-stone-900 flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-stone-100 transition-colors"
+                          aria-expanded={isDetailsOpen}
+                        >
+                          <span>{isDetailsOpen ? 'Ocultar detalhes' : 'Ver detalhes'}</span>
+                          <ChevronDown
+                            className={`w-3.5 h-3.5 transition-transform duration-200 ${
+                              isDetailsOpen ? 'rotate-180' : ''
+                            }`}
+                          />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Detalhes Expansíveis Sob Demanda */}
+                    {isDetailsOpen && (
+                      <div className="border-t border-stone-100 p-3.5 sm:p-4 bg-stone-50/70 text-xs space-y-2.5 animate-in fade-in duration-150">
+                        <p className="text-stone-600 text-[11px] leading-relaxed">
+                          {meta?.description}
+                        </p>
+
+                        {/* Box de Informações da Situação e Decisão Administrativa */}
+                        <div className={`p-2.5 rounded-xl ${statusConfig.bgLight} border ${statusConfig.borderColor} text-xs space-y-1`}>
+                          <div className="flex items-center gap-1.5 font-bold">
+                            {profile.status === 'APROVADO' && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />}
+                            {profile.status === 'PENDENTE' && <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />}
+                            {profile.status === 'REJEITADO' && <XCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />}
+                            {profile.status === 'DESATIVADO' && <PowerOff className="w-3.5 h-3.5 text-stone-600 shrink-0" />}
+                            <span className={statusConfig.textColor}>
+                              {statusConfig.label}
+                            </span>
+                          </div>
+                          <p className={`text-[11px] ${statusConfig.textColor} leading-tight`}>
+                            {statusConfig.description}
+                          </p>
+
+                          {profile.decidedAt && (
+                            <p className="text-[10px] text-stone-500 pt-1 border-t border-stone-200/50">
+                              Decisão registrada em: {formatDateTimeBR(profile.decidedAt)}
+                            </p>
+                          )}
+
+                          {profile.decisionNotes && (
+                            <p className="text-[10px] text-stone-700 italic bg-white/80 p-1.5 rounded border border-stone-200/50">
+                              "Parecer: {profile.decisionNotes}"
+                            </p>
+                          )}
+
+                          {isDeactivated && profile.deactivatedAt && (
+                            <p className="text-[10px] text-stone-500 pt-1 border-t border-stone-200/50">
+                              Desativado em: {formatDateTimeBR(profile.deactivatedAt)}
+                              {profile.deactivationReason && ` • Motivo: "${profile.deactivationReason}"`}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Ações de Gestão de Ciclo de Vida: Desativação / Reativação */}
+                        <div className="pt-1">
+                          {isApproved && !isDeactivated && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDeactivateTarget(profile);
+                              }}
+                              className="w-full py-1.5 px-3 rounded-xl text-xs font-medium text-stone-600 hover:text-rose-700 hover:bg-rose-50 flex items-center justify-center gap-1.5 border border-stone-200 transition-colors"
+                            >
+                              <PowerOff className="w-3.5 h-3.5 text-stone-400" />
+                              Desativar este perfil voluntariamente
+                            </button>
+                          )}
+
+                          {isDeactivated && (
+                            <button
+                              type="button"
+                              disabled={reactivatingId === profile.id}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRequestReactivation(profile.id);
+                              }}
+                              className="w-full py-2 px-3 rounded-xl text-xs font-semibold bg-amber-600 hover:bg-amber-700 text-white flex items-center justify-center gap-1.5 transition-colors shadow-2xs disabled:opacity-50"
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              <span>{reactivatingId === profile.id ? 'Enviando...' : 'Solicitar Reativação'}</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      ) : (
+        /* Modo com Menu Lateral: Exibe apenas aviso de setup inicial se o usuário não possuir nenhum perfil */
+        userProfiles.length === 0 && (
           <div className="bg-amber-50/70 border-2 border-dashed border-amber-300 rounded-3xl p-8 text-center space-y-3">
             <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center mx-auto">
               <ShieldAlert className="w-6 h-6" />
@@ -302,8 +528,9 @@ export const UserProfileDashboard: React.FC<UserProfileDashboardProps> = ({
             {onOpenInitialProfileSetup && (
               <div className="pt-2">
                 <button
+                  type="button"
                   onClick={onOpenInitialProfileSetup}
-                  className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow-md transition-colors inline-flex items-center gap-2"
+                  className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow-md transition-colors inline-flex items-center gap-2 cursor-pointer"
                 >
                   <PlusCircle className="w-4 h-4" />
                   Definir Meus Perfis de Atuação Agora
@@ -311,197 +538,8 @@ export const UserProfileDashboard: React.FC<UserProfileDashboardProps> = ({
               </div>
             )}
           </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
-            {userProfiles.map((profile) => {
-              const meta = PROFILE_DEFINITIONS[profile.profileType];
-              const statusConfig = STATUS_CONFIG[profile.status];
-              const isActive = activeProfile?.id === profile.id;
-              const isApproved = profile.status === 'APROVADO';
-              const isDeactivated = profile.status === 'DESATIVADO';
-              const isDetailsOpen = !!expandedProfileDetails[profile.id];
-
-              return (
-                <div
-                  key={profile.id}
-                  onClick={() => {
-                    if (!isDeactivated && !isActive) {
-                      switchActiveProfileType(profile.profileType);
-                    }
-                  }}
-                  className={`relative rounded-2xl border transition-all duration-200 overflow-hidden flex flex-col justify-between ${
-                    isActive
-                      ? 'border-emerald-600 bg-emerald-50/25 shadow-xs ring-2 ring-emerald-500/20'
-                      : isDeactivated
-                      ? 'border-stone-200 bg-stone-50/80 opacity-80'
-                      : 'border-stone-200 bg-white hover:border-emerald-300 hover:shadow-2xs cursor-pointer'
-                  }`}
-                >
-                  {/* Faixa superior do Perfil Ativo */}
-                  {isActive && (
-                    <div className="bg-emerald-700 text-white text-[10px] font-bold uppercase tracking-wider px-3 py-0.5 flex items-center justify-between">
-                      <span className="flex items-center gap-1">
-                        <Check className="w-3 h-3" />
-                        Perfil Ativo
-                      </span>
-                      <span className="text-[9px] font-normal opacity-90">Em operação no painel</span>
-                    </div>
-                  )}
-
-                  {/* Face Compacta do Cartão (sempre visível) */}
-                  <div className="p-3.5 sm:p-4 space-y-2.5">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <div
-                          className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-                            isActive ? 'bg-emerald-100 text-emerald-800' : 'bg-stone-100 text-stone-700'
-                          }`}
-                        >
-                          {getProfileIcon(profile.profileType)}
-                        </div>
-                        <div className="min-w-0">
-                          <h3 className="text-sm font-bold text-stone-900 truncate font-serif">
-                            {meta?.title || profile.profileType}
-                          </h3>
-                          <span className="text-[11px] text-stone-500 truncate block">
-                            {meta?.subtitle || 'Perfil do NutriRede'}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="shrink-0">
-                        {getStatusBadge(profile.status)}
-                      </div>
-                    </div>
-
-                    {/* Ações Compactas e Separadas: Selecionar vs Ver Detalhes */}
-                    <div className="pt-2 border-t border-stone-100 flex items-center justify-between gap-2">
-                      {/* Ação 1: Selecionar Perfil */}
-                      {isActive ? (
-                        <span className="text-[11px] font-bold text-emerald-800 bg-emerald-100/90 px-2.5 py-1 rounded-lg border border-emerald-300 flex items-center gap-1">
-                          <Check className="w-3.5 h-3.5" />
-                          Selecionado
-                        </span>
-                      ) : isDeactivated ? (
-                        <span className="text-[11px] font-medium text-stone-500 bg-stone-100 px-2.5 py-1 rounded-lg flex items-center gap-1">
-                          <PowerOff className="w-3 h-3 text-stone-400" />
-                          Desativado
-                        </span>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            switchActiveProfileType(profile.profileType);
-                          }}
-                          className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 bg-white hover:bg-emerald-50 border border-emerald-300 px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1 shadow-2xs"
-                        >
-                          <span>Selecionar</span>
-                          <ArrowRight className="w-3 h-3" />
-                        </button>
-                      )}
-
-                      {/* Ação 2: Ver / Ocultar Detalhes */}
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleProfileDetails(profile.id);
-                        }}
-                        className="text-[11px] font-semibold text-stone-600 hover:text-stone-900 flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-stone-100 transition-colors"
-                        aria-expanded={isDetailsOpen}
-                      >
-                        <span>{isDetailsOpen ? 'Ocultar detalhes' : 'Ver detalhes'}</span>
-                        <ChevronDown
-                          className={`w-3.5 h-3.5 transition-transform duration-200 ${
-                            isDetailsOpen ? 'rotate-180' : ''
-                          }`}
-                        />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Detalhes Expansíveis Sob Demanda */}
-                  {isDetailsOpen && (
-                    <div className="border-t border-stone-100 p-3.5 sm:p-4 bg-stone-50/70 text-xs space-y-2.5 animate-in fade-in duration-150">
-                      <p className="text-stone-600 text-[11px] leading-relaxed">
-                        {meta?.description}
-                      </p>
-
-                      {/* Box de Informações da Situação e Decisão Administrativa */}
-                      <div className={`p-2.5 rounded-xl ${statusConfig.bgLight} border ${statusConfig.borderColor} text-xs space-y-1`}>
-                        <div className="flex items-center gap-1.5 font-bold">
-                          {profile.status === 'APROVADO' && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />}
-                          {profile.status === 'PENDENTE' && <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />}
-                          {profile.status === 'REJEITADO' && <XCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />}
-                          {profile.status === 'DESATIVADO' && <PowerOff className="w-3.5 h-3.5 text-stone-600 shrink-0" />}
-                          <span className={statusConfig.textColor}>
-                            {statusConfig.label}
-                          </span>
-                        </div>
-                        <p className={`text-[11px] ${statusConfig.textColor} leading-tight`}>
-                          {statusConfig.description}
-                        </p>
-
-                        {profile.decidedAt && (
-                          <p className="text-[10px] text-stone-500 pt-1 border-t border-stone-200/50">
-                            Decisão registrada em: {formatDateTimeBR(profile.decidedAt)}
-                          </p>
-                        )}
-
-                        {profile.decisionNotes && (
-                          <p className="text-[10px] text-stone-700 italic bg-white/80 p-1.5 rounded border border-stone-200/50">
-                            "Parecer: {profile.decisionNotes}"
-                          </p>
-                        )}
-
-                        {isDeactivated && profile.deactivatedAt && (
-                          <p className="text-[10px] text-stone-500 pt-1 border-t border-stone-200/50">
-                            Desativado em: {formatDateTimeBR(profile.deactivatedAt)}
-                            {profile.deactivationReason && ` • Motivo: "${profile.deactivationReason}"`}
-                          </p>
-                        )}
-                      </div>
-
-                      {/* Ações de Gestão de Ciclo de Vida: Desativação / Reativação */}
-                      <div className="pt-1">
-                        {isApproved && !isDeactivated && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setDeactivateTarget(profile);
-                            }}
-                            className="w-full py-1.5 px-3 rounded-xl text-xs font-medium text-stone-600 hover:text-rose-700 hover:bg-rose-50 flex items-center justify-center gap-1.5 border border-stone-200 transition-colors"
-                          >
-                            <PowerOff className="w-3.5 h-3.5 text-stone-400" />
-                            Desativar este perfil voluntariamente
-                          </button>
-                        )}
-
-                        {isDeactivated && (
-                          <button
-                            type="button"
-                            disabled={reactivatingId === profile.id}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleRequestReactivation(profile.id);
-                            }}
-                            className="w-full py-2 px-3 rounded-xl text-xs font-semibold bg-amber-600 hover:bg-amber-700 text-white flex items-center justify-center gap-1.5 transition-colors shadow-2xs disabled:opacity-50"
-                          >
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            <span>{reactivatingId === profile.id ? 'Enviando...' : 'Solicitar Reativação'}</span>
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+        )
+      )}
 
       {/* Detalhe do Ambiente do Perfil Ativo */}
       {activeProfile && (

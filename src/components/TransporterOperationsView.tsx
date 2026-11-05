@@ -14,7 +14,10 @@ import {
   ArrowRight,
   ShieldAlert,
   Info,
-  X
+  X,
+  ChevronDown,
+  Sparkles,
+  Thermometer
 } from 'lucide-react';
 import { collection, onSnapshot, query, where, doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
@@ -26,9 +29,54 @@ import {
   getTransporterAvailability,
   setTransporterAvailability
 } from '../services/transportService';
-import { formatDateTimeBR } from '../utils/dateUtils';
+import { formatDateBR, formatDateTimeBR } from '../utils/dateUtils';
 import { OperationTimeline } from './OperationTimeline';
 import { CreateOccurrenceModal } from './CreateOccurrenceModal';
+
+// M51: Formatação resumida da janela de retirada no padrão "Retirada: 11h–14h"
+function formatShortPickupWindow(startStr?: string | null, endStr?: string | null): string {
+  if (!startStr && !endStr) return 'Janela a definir';
+
+  const extractTime = (str?: string | null) => {
+    if (!str) return '';
+    // YYYY-MM-DDTHH:mm
+    const match = str.match(/T(\d{2}):(\d{2})/);
+    if (match) {
+      const [, h, m] = match;
+      const numH = parseInt(h, 10);
+      return m === '00' ? `${numH}h` : `${numH}h${m}`;
+    }
+    try {
+      const d = new Date(str);
+      if (!isNaN(d.getTime())) {
+        const parts = new Intl.DateTimeFormat('pt-BR', {
+          timeZone: 'America/Sao_Paulo',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false
+        }).formatToParts(d);
+        const h = parts.find((p) => p.type === 'hour')?.value || '';
+        const m = parts.find((p) => p.type === 'minute')?.value || '';
+        const numH = parseInt(h, 10);
+        return m === '00' ? `${numH}h` : `${numH}h${m}`;
+      }
+    } catch {
+      // Fallback
+    }
+    return '';
+  };
+
+  const startTime = extractTime(startStr);
+  const endTime = extractTime(endStr);
+
+  if (startTime && endTime) {
+    return `Retirada: ${startTime}–${endTime}`;
+  }
+  if (startTime) {
+    return `Retirada a partir de ${startTime}`;
+  }
+  return 'Retirada: ver detalhes';
+}
 
 export const TransporterOperationsView: React.FC = () => {
   const { currentUser, userAccount, activeProfile, reloadUserData } = useAuth();
@@ -36,6 +84,27 @@ export const TransporterOperationsView: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'available' | 'my_pickups' | 'history'>('available');
   const [availability, setAvailability] = useState<'DISPONIVEL' | 'INDISPONIVEL'>('DISPONIVEL');
   const [availabilityLoading, setAvailabilityLoading] = useState(false);
+
+  // M51: Controle de expansão exclusiva da aba "Coletas Disponíveis" (apenas uma expandida por vez)
+  const [expandedResId, setExpandedResId] = useState<string | null>(null);
+
+  const toggleExpand = (resId: string) => {
+    setExpandedResId((prev) => (prev === resId ? null : resId));
+  };
+
+  // M52: Controle de expansão exclusiva da aba "Minhas Coletas em Andamento"
+  const [expandedMyPickupId, setExpandedMyPickupId] = useState<string | null>(null);
+
+  const toggleExpandMyPickup = (pickupId: string) => {
+    setExpandedMyPickupId((prev) => (prev === pickupId ? null : pickupId));
+  };
+
+  // M53: Controle de expansão exclusiva da aba "Histórico de Entregas"
+  const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
+
+  const toggleExpandHistory = (pickupId: string) => {
+    setExpandedHistoryId((prev) => (prev === pickupId ? null : pickupId));
+  };
 
   // Dados em tempo real
   const [approvedReservations, setApprovedReservations] = useState<Reservation[]>([]);
@@ -51,6 +120,13 @@ export const TransporterOperationsView: React.FC = () => {
   const [confirmPickupTarget, setConfirmPickupTarget] = useState<Pickup | null>(null);
   const [occurrenceTarget, setOccurrenceTarget] = useState<{ operationId: string; batchId: string; foodName: string } | null>(null);
   const [feedbackMsg, setFeedbackMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+
+  // M51: Se a coleta atualmente expandida deixar de estar disponível, recolhe automaticamente
+  useEffect(() => {
+    if (expandedResId && !approvedReservations.some((r) => r.id === expandedResId)) {
+      setExpandedResId(null);
+    }
+  }, [approvedReservations, expandedResId]);
 
   // 1. Carrega disponibilidade inicial do transportador
   useEffect(() => {
@@ -70,13 +146,32 @@ export const TransporterOperationsView: React.FC = () => {
       where('status', '==', 'APROVADA')
     );
 
-    const unsubRes = onSnapshot(qRes, (snap) => {
+    const unsubRes = onSnapshot(qRes, async (snap) => {
       const list: Reservation[] = [];
       snap.forEach((d) => list.push(d.data() as Reservation));
       // Filtra apenas as que ainda não possuem transportador vinculado
       const available = list.filter((r) => !r.activePickupId);
       setApprovedReservations(available);
       setLoading(false);
+
+      // Carrega lotes associados para detalhes sob demanda (categoria, conservação, validade)
+      const batchIds = Array.from(new Set(available.map((r) => r.batchId)));
+      const newMap: Record<string, FoodBatch> = {};
+
+      for (const bId of batchIds) {
+        try {
+          const bSnap = await getDoc(doc(db, 'food_batches', bId));
+          if (bSnap.exists()) {
+            newMap[bId] = bSnap.data() as FoodBatch;
+          }
+        } catch (e) {
+          console.warn('Erro ao carregar lote associado à reserva:', bId, e);
+        }
+      }
+
+      if (Object.keys(newMap).length > 0) {
+        setBatchesMap((prev) => ({ ...prev, ...newMap }));
+      }
     });
 
     return () => unsubRes();
@@ -289,6 +384,30 @@ export const TransporterOperationsView: React.FC = () => {
     return !isCompleted && !isInTransit && p.status === 'ACEITA';
   });
 
+  // M52: Se a coleta em andamento expandida deixar de estar ativa, recolhe automaticamente
+  useEffect(() => {
+    const activeList = [...pendingPickups, ...inTransitPickups];
+    if (expandedMyPickupId && !activeList.some((p) => p.id === expandedMyPickupId)) {
+      setExpandedMyPickupId(null);
+    }
+  }, [pendingPickups, inTransitPickups, expandedMyPickupId]);
+
+  // M53: Se a entrega do histórico expandida deixar de estar na lista, recolhe automaticamente
+  useEffect(() => {
+    if (expandedHistoryId && !completedPickups.some((p) => p.id === expandedHistoryId)) {
+      setExpandedHistoryId(null);
+    }
+  }, [completedPickups, expandedHistoryId]);
+
+  // M53: Ordenação das entregas concluídas por data mais recente primeiro
+  const sortedCompletedPickups = [...completedPickups].sort((a, b) => {
+    const deliveryA = deliveries.find((d) => d.pickupId === a.id || d.batchId === a.batchId);
+    const deliveryB = deliveries.find((d) => d.pickupId === b.id || d.batchId === b.batchId);
+    const dateA = new Date(deliveryA?.confirmedAt || batchesMap[a.batchId]?.completedAt || a.pickedUpAt || a.acceptedAt || 0).getTime();
+    const dateB = new Date(deliveryB?.confirmedAt || batchesMap[b.batchId]?.completedAt || b.pickedUpAt || b.acceptedAt || 0).getTime();
+    return dateB - dateA;
+  });
+
   return (
     <div className="space-y-6">
       {/* Barra de Controle de Disponibilidade (RF09) */}
@@ -458,68 +577,238 @@ export const TransporterOperationsView: React.FC = () => {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {approvedReservations.map((res) => (
-                <div
-                  key={res.id}
-                  className="bg-white rounded-3xl p-5 border border-stone-200 shadow-2xs hover:border-amber-300 transition-all space-y-3"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <span className="text-[11px] font-bold text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-full border border-emerald-300">
-                        {res.batchQuantity} {res.batchUnit}
-                      </span>
-                      <h4 className="text-base font-bold text-stone-900 font-serif mt-2">
-                        {res.foodName}
-                      </h4>
-                    </div>
+            <div className="space-y-3">
+              {approvedReservations.map((res) => {
+                const batch = batchesMap[res.batchId];
+                const isExpanded = expandedResId === res.id;
+                const shortWindow = formatShortPickupWindow(res.pickupWindowStart, res.pickupWindowEnd);
 
-                    <span className="text-[11px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-300">
-                      Reserva Aprovada
-                    </span>
-                  </div>
-
-                  <div className="space-y-1.5 text-xs text-stone-600 pt-2 border-t border-stone-100">
-                    <div className="flex items-center gap-1.5">
-                      <User className="w-3.5 h-3.5 text-stone-400 shrink-0" />
-                      <span>Doador: <strong>{res.donorName}</strong></span>
-                    </div>
-
-                    <div className="flex items-center gap-1.5">
-                      <MapPin className="w-3.5 h-3.5 text-stone-400 shrink-0" />
-                      <span>Retirada em: <strong>{res.pickupAddress}</strong></span>
-                    </div>
-
-                    <div className="flex items-center gap-1.5">
-                      <Clock className="w-3.5 h-3.5 text-stone-400 shrink-0" />
-                      <span>Janela: {formatDateTimeBR(res.pickupWindowStart)} até {formatDateTimeBR(res.pickupWindowEnd)}</span>
-                    </div>
-
-                    <div className="flex items-center gap-1.5">
-                      <Package className="w-3.5 h-3.5 text-stone-400 shrink-0" />
-                      <span>Destino: <strong>{res.receiverName}</strong></span>
-                    </div>
-                  </div>
-
-                  <div className="pt-2">
+                return (
+                  <div
+                    key={res.id}
+                    className={`bg-white rounded-2xl sm:rounded-3xl border transition-all duration-200 overflow-hidden ${
+                      isExpanded
+                        ? 'border-amber-500 shadow-md ring-1 ring-amber-500/20'
+                        : 'border-stone-200 shadow-2xs hover:border-amber-300 hover:shadow-xs'
+                    }`}
+                  >
+                    {/* Linha Compacta Clicável (M51) */}
                     <button
                       type="button"
-                      disabled={availability === 'INDISPONIVEL'}
-                      onClick={() => setAcceptingRes(res)}
-                      className="w-full py-2.5 px-4 rounded-xl text-xs font-semibold text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5 shadow-2xs"
+                      onClick={() => toggleExpand(res.id)}
+                      aria-expanded={isExpanded}
+                      aria-controls={`pickup-details-${res.id}`}
+                      className="w-full text-left p-4 sm:p-5 flex items-center justify-between gap-3 sm:gap-4 transition-colors hover:bg-stone-50/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 group"
                     >
-                      <Truck className="w-4 h-4" />
-                      Aceitar Coleta
+                      <div className="flex items-center gap-2 sm:gap-3 flex-wrap sm:flex-nowrap flex-1 min-w-0">
+                        {/* Nome do alimento */}
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Package className="w-4 h-4 text-amber-700 shrink-0" />
+                          <span className="font-bold text-stone-900 text-sm sm:text-base font-serif truncate">
+                            {res.foodName}
+                          </span>
+                        </div>
+
+                        <span className="text-stone-300 hidden sm:inline select-none">|</span>
+
+                        {/* Quantidade e unidade */}
+                        <span className="text-xs font-bold text-amber-900 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200 shrink-0">
+                          {res.batchQuantity} {res.batchUnit}
+                        </span>
+
+                        <span className="text-stone-300 hidden sm:inline select-none">|</span>
+
+                        {/* Localidade de retirada resumida */}
+                        {res.pickupAddress && (
+                          <>
+                            <span className="text-xs text-stone-600 shrink-0 flex items-center gap-1 max-w-[180px] sm:max-w-[220px] truncate">
+                              <MapPin className="w-3.5 h-3.5 text-stone-400 shrink-0" />
+                              <span className="truncate">{res.pickupAddress}</span>
+                            </span>
+                            <span className="text-stone-300 hidden sm:inline select-none">|</span>
+                          </>
+                        )}
+
+                        {/* Janela de retirada resumida */}
+                        <span className="text-xs text-stone-600 shrink-0 flex items-center gap-1">
+                          <Clock className="w-3.5 h-3.5 text-stone-400 shrink-0" />
+                          <span>{shortWindow}</span>
+                        </span>
+
+                        <span className="text-stone-300 hidden sm:inline select-none">|</span>
+
+                        {/* Situação da coleta */}
+                        <div className="shrink-0">
+                          <span className="text-xs px-2.5 py-0.5 rounded-full font-bold border inline-flex items-center gap-1 bg-emerald-50 text-emerald-800 border-emerald-200">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                            Disponível
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Ícone de Expansão / Recolhimento */}
+                      <div className="shrink-0 pl-1 sm:pl-2">
+                        <span
+                          className={`w-7 h-7 rounded-xl flex items-center justify-center transition-all duration-200 ${
+                            isExpanded
+                              ? 'bg-amber-100 text-amber-800 rotate-180'
+                              : 'bg-stone-100 text-stone-500 group-hover:bg-stone-200 group-hover:text-stone-800'
+                          }`}
+                          aria-hidden="true"
+                        >
+                          <ChevronDown className="w-4 h-4 transition-transform duration-200" />
+                        </span>
+                      </div>
                     </button>
+
+                    {/* Detalhes Expansíveis Sob Demanda (M51) */}
+                    {isExpanded && (
+                      <div
+                        id={`pickup-details-${res.id}`}
+                        className="border-t border-stone-100 p-5 sm:p-6 bg-stone-50/40 space-y-4 animate-in fade-in slide-in-from-top-1 duration-150"
+                      >
+                        {/* Grid Superior: Alimento/Quantidade, Doador, Entidade Receptora e Validade */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 p-4 bg-white rounded-2xl border border-stone-200/80 text-xs text-stone-600 shadow-2xs">
+                          <div>
+                            <span className="text-[10px] uppercase font-bold text-stone-400 block">
+                              Alimento & Quantidade
+                            </span>
+                            <strong className="text-stone-900 text-sm block mt-0.5">
+                              {res.foodName}
+                            </strong>
+                            <span className="inline-block mt-1 text-xs font-bold text-amber-900 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
+                              {res.batchQuantity} {res.batchUnit}
+                            </span>
+                            {batch?.category && (
+                              <span className="text-[11px] text-stone-500 block mt-1">
+                                Categoria: <strong>{batch.category}</strong>
+                              </span>
+                            )}
+                          </div>
+
+                          <div>
+                            <span className="text-[10px] uppercase font-bold text-stone-400 block">
+                              Doador Responsável (Origem)
+                            </span>
+                            <strong className="text-stone-900 text-sm block mt-0.5">
+                              {res.donorName}
+                            </strong>
+                            {batch?.donorEmail && (
+                              <span className="text-[11px] text-stone-500 block truncate">
+                                {batch.donorEmail}
+                              </span>
+                            )}
+                          </div>
+
+                          <div>
+                            <span className="text-[10px] uppercase font-bold text-stone-400 block">
+                              Entidade Receptora (Destino)
+                            </span>
+                            <strong className="text-stone-900 text-sm block mt-0.5">
+                              {res.receiverName}
+                            </strong>
+                            {res.receiverPhone && (
+                              <span className="text-[11px] text-stone-500 block">
+                                Contato: {res.receiverPhone}
+                              </span>
+                            )}
+                          </div>
+
+                          <div>
+                            <span className="text-[10px] uppercase font-bold text-stone-400 block">
+                              Validade do Alimento
+                            </span>
+                            <span className="text-sm font-semibold text-stone-800 block mt-0.5">
+                              {formatDateBR(res.expirationDate || batch?.expirationDate)}
+                            </span>
+                            {(res.consumptionDeadline || batch?.consumptionDeadline) && (
+                              <span className="text-[11px] text-amber-800 font-semibold block mt-0.5">
+                                Horário-limite: {(res.consumptionDeadline || batch?.consumptionDeadline)?.replace(':', 'h')}
+                              </span>
+                            )}
+                            <span className="inline-flex items-center gap-1 mt-1 text-[11px] font-bold text-emerald-700">
+                              <CheckCircle2 className="w-3.5 h-3.5" /> Reserva Aprovada
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Bloco Operacional: Endereço de Retirada, Janela e Conservação */}
+                        <div className="p-4 bg-white rounded-2xl border border-stone-200/80 text-xs text-stone-600 shadow-2xs space-y-3">
+                          <div className="flex items-start gap-2">
+                            <MapPin className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+                            <div>
+                              <span className="font-semibold text-stone-900 block">Endereço de Retirada:</span>
+                              <span className="text-stone-700">{res.pickupAddress}</span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-start gap-2 pt-2 border-t border-stone-100">
+                            <Clock className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+                            <div className="space-y-0.5">
+                              <span className="font-semibold text-stone-900 block">Janela de Retirada (Horário de Brasília):</span>
+                              <div className="text-[11px] text-stone-700">
+                                <div><strong className="text-stone-900">Início:</strong> {formatDateTimeBR(res.pickupWindowStart)}</div>
+                                <div><strong className="text-stone-900">Término:</strong> {formatDateTimeBR(res.pickupWindowEnd)}</div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {batch?.storageCondition && (
+                            <div className="flex items-start gap-2 pt-2 border-t border-stone-100">
+                              <Thermometer className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+                              <div>
+                                <span className="font-semibold text-stone-900 block">Condições de Conservação:</span>
+                                <span className="text-stone-700">{batch.storageCondition}</span>
+                              </div>
+                            </div>
+                          )}
+
+                          {(res.decisionNotes || (batch as any)?.notes) && (
+                            <div className="flex items-start gap-2 pt-2 border-t border-stone-100">
+                              <Info className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+                              <div>
+                                <span className="font-semibold text-stone-900 block">Observações e Parecer Administrativo:</span>
+                                {res.decisionNotes && (
+                                  <p className="text-stone-700 mb-1">
+                                    <strong>Parecer:</strong> {res.decisionNotes}
+                                  </p>
+                                )}
+                                {(batch as any)?.notes && (
+                                  <p className="text-stone-600 text-[11px]">{(batch as any).notes}</p>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Ações: Aceitar Coleta */}
+                        <div className="pt-1 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                          <div className="text-[11px] text-stone-500 flex items-center gap-1.5">
+                            <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                            <span>O aceite atribui a coleta com exclusividade para você no Ciclo 3.</span>
+                          </div>
+
+                          <button
+                            type="button"
+                            disabled={availability === 'INDISPONIVEL'}
+                            onClick={() => setAcceptingRes(res)}
+                            className="py-2.5 px-5 rounded-xl text-xs font-semibold text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2 shadow-2xs shrink-0"
+                          >
+                            <Truck className="w-4 h-4" />
+                            <span>Aceitar Coleta</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
       )}
 
-      {/* Conteúdo da Aba 2: Minhas Coletas em Andamento */}
+      {/* Conteúdo da Aba 2: Minhas Coletas em Andamento (M52) */}
       {activeTab === 'my_pickups' && (
         <div className="space-y-6">
           {(pendingPickups.length + inTransitPickups.length) === 0 ? (
@@ -533,103 +822,245 @@ export const TransporterOperationsView: React.FC = () => {
               </p>
             </div>
           ) : (
-            <div className="space-y-6">
+            <div className="space-y-3">
               {[...pendingPickups, ...inTransitPickups].map((pickup) => {
                 const batch = batchesMap[pickup.batchId];
                 const isPickedUp = pickup.status === 'RETIRADA' || batch?.status === 'EM_TRANSPORTE';
+                const isExpanded = expandedMyPickupId === pickup.id;
+                const shortWindow = formatShortPickupWindow(pickup.pickupWindowStart, pickup.pickupWindowEnd);
 
                 return (
                   <div
                     key={pickup.id}
-                    className="bg-white rounded-3xl p-6 border border-stone-200 shadow-2xs space-y-4"
+                    className={`bg-white rounded-2xl sm:rounded-3xl border transition-all duration-200 overflow-hidden ${
+                      isExpanded
+                        ? 'border-amber-500 shadow-md ring-1 ring-amber-500/20'
+                        : 'border-stone-200 shadow-2xs hover:border-amber-300 hover:shadow-xs'
+                    }`}
                   >
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-stone-100">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h4 className="text-lg font-bold text-stone-900 font-serif">
+                    {/* Linha Compacta Clicável (M52) */}
+                    <button
+                      type="button"
+                      onClick={() => toggleExpandMyPickup(pickup.id)}
+                      aria-expanded={isExpanded}
+                      aria-controls={`my-pickup-details-${pickup.id}`}
+                      className="w-full text-left p-4 sm:p-5 flex items-center justify-between gap-3 sm:gap-4 transition-colors hover:bg-stone-50/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 group"
+                    >
+                      <div className="flex items-center gap-2 sm:gap-3 flex-wrap sm:flex-nowrap flex-1 min-w-0">
+                        {/* Nome do alimento */}
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Package className="w-4 h-4 text-amber-700 shrink-0" />
+                          <span className="font-bold text-stone-900 text-sm sm:text-base font-serif truncate">
                             {pickup.foodName}
-                          </h4>
-                          <span className="text-xs font-bold text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-full border border-emerald-300">
-                            {pickup.batchQuantity} {pickup.batchUnit}
                           </span>
                         </div>
-                        <p className="text-xs text-stone-500 mt-0.5">
-                          Aceita em {formatDateTimeBR(pickup.acceptedAt)}
-                        </p>
+
+                        <span className="text-stone-300 hidden sm:inline select-none">|</span>
+
+                        {/* Quantidade e unidade */}
+                        <span className="text-xs font-bold text-amber-900 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200 shrink-0">
+                          {pickup.batchQuantity} {pickup.batchUnit}
+                        </span>
+
+                        <span className="text-stone-300 hidden sm:inline select-none">|</span>
+
+                        {/* Local de retirada resumido */}
+                        {pickup.pickupAddress && (
+                          <>
+                            <span className="text-xs text-stone-600 shrink-0 flex items-center gap-1 max-w-[180px] sm:max-w-[220px] truncate">
+                              <MapPin className="w-3.5 h-3.5 text-stone-400 shrink-0" />
+                              <span className="truncate">{pickup.pickupAddress}</span>
+                            </span>
+                            <span className="text-stone-300 hidden sm:inline select-none">|</span>
+                          </>
+                        )}
+
+                        {/* Janela ou data de retirada */}
+                        <span className="text-xs text-stone-600 shrink-0 flex items-center gap-1">
+                          <Clock className="w-3.5 h-3.5 text-stone-400 shrink-0" />
+                          <span>{shortWindow}</span>
+                        </span>
+
+                        <span className="text-stone-300 hidden sm:inline select-none">|</span>
+
+                        {/* Situação operacional atual */}
+                        <div className="shrink-0">
+                          <span
+                            className={`text-xs px-2.5 py-0.5 rounded-full font-bold border inline-flex items-center gap-1 ${
+                              isPickedUp
+                                ? 'bg-amber-100 text-amber-800 border-amber-300'
+                                : 'bg-teal-100 text-teal-800 border-teal-300'
+                            }`}
+                          >
+                            {isPickedUp ? (
+                              <>
+                                <Truck className="w-3 h-3 text-amber-700" />
+                                Retirada Confirmada
+                              </>
+                            ) : (
+                              <>
+                                <CheckCircle2 className="w-3 h-3 text-teal-700" />
+                                Coleta Aceita
+                              </>
+                            )}
+                          </span>
+                        </div>
                       </div>
 
-                      <div className="flex items-center gap-2">
+                      {/* Ícone de Expansão / Recolhimento */}
+                      <div className="shrink-0 pl-1 sm:pl-2">
                         <span
-                          className={`text-xs font-bold px-3 py-1 rounded-full border ${
-                            isPickedUp
-                              ? 'bg-amber-100 text-amber-800 border-amber-300'
-                              : 'bg-teal-100 text-teal-800 border-teal-300'
+                          className={`w-7 h-7 rounded-xl flex items-center justify-center transition-all duration-200 ${
+                            isExpanded
+                              ? 'bg-amber-100 text-amber-800 rotate-180'
+                              : 'bg-stone-100 text-stone-500 group-hover:bg-stone-200 group-hover:text-stone-800'
                           }`}
+                          aria-hidden="true"
                         >
-                          {isPickedUp ? 'Alimentos em Transporte' : 'Coleta Aceita — Aguardando Retirada'}
+                          <ChevronDown className="w-4 h-4 transition-transform duration-200" />
                         </span>
                       </div>
-                    </div>
+                    </button>
 
-                    {/* Dados Operacionais de Origem e Destino */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-stone-700 bg-stone-50 p-4 rounded-2xl border border-stone-200">
-                      <div className="space-y-1">
-                        <span className="text-[10px] uppercase font-bold text-stone-400">Origem / Retirada</span>
-                        <div className="font-semibold text-stone-900">{pickup.donorName}</div>
-                        <div className="text-stone-500">{pickup.pickupAddress}</div>
-                        <div className="text-[11px] text-stone-500 mt-1">
-                          Janela: {formatDateTimeBR(pickup.pickupWindowStart)} até {formatDateTimeBR(pickup.pickupWindowEnd)}
-                        </div>
-                      </div>
-
-                      <div className="space-y-1 md:border-l md:border-stone-200 md:pl-4">
-                        <span className="text-[10px] uppercase font-bold text-stone-400">Destino / Entrega</span>
-                        <div className="font-semibold text-stone-900">{pickup.receiverName}</div>
-                        <div className="text-stone-500">Entidade Receptora Homologada</div>
-                        <div className="text-[11px] text-stone-500 mt-1">
-                          {isPickedUp
-                            ? 'Aguardando confirmação de recebimento pela entidade no destino.'
-                            : 'Retire os alimentos no doador para iniciar o transporte.'}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Linha do Tempo Visual Integrada */}
-                    {batch && (
-                      <OperationTimeline
-                        batch={batch}
-                        pickup={pickup}
-                        occurrences={occurrencesMap[pickup.batchId] || []}
-                      />
-                    )}
-
-                    {/* Ações Operacionais */}
-                    <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-                      <button
-                        type="button"
-                        onClick={() => setOccurrenceTarget({ operationId: pickup.reservationId, batchId: pickup.batchId, foodName: pickup.foodName })}
-                        className="py-2 px-3.5 rounded-xl text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 flex items-center gap-1.5 transition-colors"
+                    {/* Detalhes Expansíveis Sob Demanda (M52) */}
+                    {isExpanded && (
+                      <div
+                        id={`my-pickup-details-${pickup.id}`}
+                        className="border-t border-stone-100 p-5 sm:p-6 bg-stone-50/40 space-y-4 animate-in fade-in slide-in-from-top-1 duration-150"
                       >
-                        <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
-                        Registrar Ocorrência
-                      </button>
+                        {/* Grid Superior: Alimento/Quantidade/Lote, Doador, Entidade Receptora e Validade */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 p-4 bg-white rounded-2xl border border-stone-200/80 text-xs text-stone-600 shadow-2xs">
+                          <div>
+                            <span className="text-[10px] uppercase font-bold text-stone-400 block">
+                              Alimento & Quantidade
+                            </span>
+                            <strong className="text-stone-900 text-sm block mt-0.5">
+                              {pickup.foodName}
+                            </strong>
+                            <span className="inline-block mt-1 text-xs font-bold text-amber-900 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
+                              {pickup.batchQuantity} {pickup.batchUnit}
+                            </span>
+                            <span className="text-[11px] text-stone-400 block mt-1 font-mono">
+                              Lote: {pickup.batchId.slice(0, 8)}...
+                            </span>
+                          </div>
 
-                      {!isPickedUp ? (
-                        <button
-                          type="button"
-                          onClick={() => setConfirmPickupTarget(pickup)}
-                          className="py-2.5 px-5 rounded-xl text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 transition-colors flex items-center gap-1.5 shadow-2xs"
-                        >
-                          <CheckCircle2 className="w-4 h-4" />
-                          Confirmar retirada dos alimentos
-                        </button>
-                      ) : (
-                        <div className="text-xs font-semibold text-amber-800 bg-amber-50 px-3 py-1.5 rounded-xl border border-amber-200 flex items-center gap-1.5">
-                          <Clock className="w-3.5 h-3.5 text-amber-600" />
-                          Retirada registrada em {formatDateTimeBR(pickup.pickedUpAt || '')}. Aguardando entrega no destino.
+                          <div>
+                            <span className="text-[10px] uppercase font-bold text-stone-400 block">
+                              Origem / Doador
+                            </span>
+                            <strong className="text-stone-900 text-sm block mt-0.5">
+                              {pickup.donorName}
+                            </strong>
+                            <span className="text-[11px] text-stone-500 block truncate">
+                              {pickup.pickupAddress}
+                            </span>
+                          </div>
+
+                          <div>
+                            <span className="text-[10px] uppercase font-bold text-stone-400 block">
+                              Destino / Entidade Receptora
+                            </span>
+                            <strong className="text-stone-900 text-sm block mt-0.5">
+                              {pickup.receiverName}
+                            </strong>
+                            <span className="text-[11px] text-stone-500 block">
+                              Entidade Receptora Homologada
+                            </span>
+                          </div>
+
+                          <div>
+                            <span className="text-[10px] uppercase font-bold text-stone-400 block">
+                              Validade & Horário-Limite
+                            </span>
+                            <span className="text-sm font-semibold text-stone-800 block mt-0.5">
+                              {formatDateBR(batch?.expirationDate)}
+                            </span>
+                            {batch?.consumptionDeadline && (
+                              <span className="text-[11px] text-amber-800 font-semibold block mt-0.5">
+                                Horário-limite: {batch.consumptionDeadline.replace(':', 'h')}
+                              </span>
+                            )}
+                            <p className="text-[11px] text-stone-400 mt-1">
+                              Aceita em {formatDateTimeBR(pickup.acceptedAt)}
+                            </p>
+                          </div>
                         </div>
-                      )}
-                    </div>
+
+                        {/* Bloco Operacional: Janela, Conservação e Endereço */}
+                        <div className="p-4 bg-white rounded-2xl border border-stone-200/80 text-xs text-stone-600 shadow-2xs space-y-3">
+                          <div className="flex items-start gap-2">
+                            <Clock className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+                            <div className="space-y-0.5">
+                              <span className="font-semibold text-stone-900 block">Janela de Retirada (Horário de Brasília):</span>
+                              <div className="text-[11px] text-stone-700">
+                                <div><strong className="text-stone-900">Início:</strong> {formatDateTimeBR(pickup.pickupWindowStart)}</div>
+                                <div><strong className="text-stone-900">Término:</strong> {formatDateTimeBR(pickup.pickupWindowEnd)}</div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {batch?.storageCondition && (
+                            <div className="flex items-start gap-2 pt-2 border-t border-stone-100">
+                              <Thermometer className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+                              <div>
+                                <span className="font-semibold text-stone-900 block">Condições de Conservação:</span>
+                                <span className="text-stone-700">{batch.storageCondition}</span>
+                              </div>
+                            </div>
+                          )}
+
+                          <div className="flex items-start gap-2 pt-2 border-t border-stone-100">
+                            <Info className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+                            <div>
+                              <span className="font-semibold text-stone-900 block">Situação Operacional:</span>
+                              <span className="text-stone-700">
+                                {isPickedUp
+                                  ? 'Alimentos retirados e em trânsito. Entregue à entidade no destino.'
+                                  : 'Coleta sob sua responsabilidade. Dirija-se ao local do doador dentro da janela para retirar o lote.'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Linha do Tempo Visual Integrada */}
+                        {batch && (
+                          <OperationTimeline
+                            batch={batch}
+                            pickup={pickup}
+                            occurrences={occurrencesMap[pickup.batchId] || []}
+                          />
+                        )}
+
+                        {/* Ações Operacionais */}
+                        <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+                          <button
+                            type="button"
+                            onClick={() => setOccurrenceTarget({ operationId: pickup.reservationId, batchId: pickup.batchId, foodName: pickup.foodName })}
+                            className="py-2 px-3.5 rounded-xl text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 flex items-center gap-1.5 transition-colors"
+                          >
+                            <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
+                            Registrar Ocorrência
+                          </button>
+
+                          {!isPickedUp ? (
+                            <button
+                              type="button"
+                              onClick={() => setConfirmPickupTarget(pickup)}
+                              className="py-2.5 px-5 rounded-xl text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 transition-colors flex items-center gap-1.5 shadow-2xs"
+                            >
+                              <CheckCircle2 className="w-4 h-4" />
+                              Confirmar retirada dos alimentos
+                            </button>
+                          ) : (
+                            <div className="text-xs font-semibold text-amber-800 bg-amber-50 px-3 py-1.5 rounded-xl border border-amber-200 flex items-center gap-1.5">
+                              <Clock className="w-3.5 h-3.5 text-amber-600" />
+                              Retirada registrada em {formatDateTimeBR(pickup.pickedUpAt || '')}. Aguardando entrega no destino.
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -638,7 +1069,7 @@ export const TransporterOperationsView: React.FC = () => {
         </div>
       )}
 
-      {/* Conteúdo da Aba 3: Histórico de Entregas (RF15) */}
+      {/* Conteúdo da Aba 3: Histórico de Entregas (M53) */}
       {activeTab === 'history' && (
         <div className="space-y-4">
           {completedPickups.length === 0 ? (
@@ -652,53 +1083,177 @@ export const TransporterOperationsView: React.FC = () => {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-4">
-              {completedPickups.map((pickup) => {
+            <div className="space-y-3">
+              {sortedCompletedPickups.map((pickup) => {
                 const batch = batchesMap[pickup.batchId];
                 const delivery = deliveries.find((d) => d.pickupId === pickup.id || d.batchId === pickup.batchId);
                 const batchOccs = occurrencesMap[pickup.batchId] || [];
+                const isExpanded = expandedHistoryId === pickup.id;
+                const completionDateStr = delivery?.confirmedAt || batch?.completedAt || pickup.pickedUpAt || pickup.acceptedAt;
+                const completionDate = formatDateBR(completionDateStr);
 
                 return (
                   <div
                     key={pickup.id}
-                    className="bg-white rounded-3xl p-5 border border-stone-200 space-y-3"
+                    className={`bg-white rounded-2xl sm:rounded-3xl border transition-all duration-200 overflow-hidden ${
+                      isExpanded
+                        ? 'border-emerald-500 shadow-md ring-1 ring-emerald-500/20'
+                        : 'border-stone-200 shadow-2xs hover:border-emerald-300 hover:shadow-xs'
+                    }`}
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                        <h4 className="text-base font-bold text-stone-900 font-serif">
-                          {pickup.foodName}
-                        </h4>
-                        <span className="text-xs font-bold text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-full border border-emerald-300">
+                    {/* Linha Compacta Clicável (M53) */}
+                    <button
+                      type="button"
+                      onClick={() => toggleExpandHistory(pickup.id)}
+                      aria-expanded={isExpanded}
+                      aria-controls={`history-details-${pickup.id}`}
+                      className="w-full text-left p-4 sm:p-5 flex items-center justify-between gap-3 sm:gap-4 transition-colors hover:bg-stone-50/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 group"
+                    >
+                      <div className="flex items-center gap-2 sm:gap-3 flex-wrap sm:flex-nowrap flex-1 min-w-0">
+                        {/* Nome do alimento */}
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Package className="w-4 h-4 text-emerald-700 shrink-0" />
+                          <span className="font-bold text-stone-900 text-sm sm:text-base font-serif truncate">
+                            {pickup.foodName}
+                          </span>
+                        </div>
+
+                        <span className="text-stone-300 hidden sm:inline select-none">|</span>
+
+                        {/* Quantidade e unidade */}
+                        <span className="text-xs font-bold text-emerald-900 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 shrink-0">
                           {pickup.batchQuantity} {pickup.batchUnit}
                         </span>
+
+                        <span className="text-stone-300 hidden sm:inline select-none">|</span>
+
+                        {/* Data da operação ou conclusão */}
+                        <span className="text-xs text-stone-600 shrink-0 flex items-center gap-1">
+                          <Calendar className="w-3.5 h-3.5 text-stone-400 shrink-0" />
+                          <span>{completionDate}</span>
+                        </span>
+
+                        <span className="text-stone-300 hidden sm:inline select-none">|</span>
+
+                        {/* Situação final registrada */}
+                        <div className="shrink-0">
+                          <span className="text-xs px-2.5 py-0.5 rounded-full font-bold border inline-flex items-center gap-1 bg-emerald-100 text-emerald-800 border-emerald-300">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                            Concluída
+                          </span>
+                        </div>
                       </div>
 
-                      <span className="text-xs font-bold text-emerald-800 bg-emerald-100 px-3 py-1 rounded-full border border-emerald-300">
-                        Doação Concluída
-                      </span>
-                    </div>
+                      {/* Ícone de Expansão / Detalhes */}
+                      <div className="shrink-0 pl-1 sm:pl-2">
+                        <span
+                          className={`w-7 h-7 rounded-xl flex items-center justify-center transition-all duration-200 ${
+                            isExpanded
+                              ? 'bg-emerald-100 text-emerald-800 rotate-180'
+                              : 'bg-stone-100 text-stone-500 group-hover:bg-stone-200 group-hover:text-stone-800'
+                          }`}
+                          aria-hidden="true"
+                        >
+                          <ChevronDown className="w-4 h-4 transition-transform duration-200" />
+                        </span>
+                      </div>
+                    </button>
 
-                    <div className="text-xs text-stone-600 grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2 border-t border-stone-100">
-                      <div>
-                        <span className="text-stone-400">Doador:</span> {pickup.donorName}
-                      </div>
-                      <div>
-                        <span className="text-stone-400">Entidade:</span> {pickup.receiverName}
-                      </div>
-                      <div>
-                        <span className="text-stone-400">Entregue em:</span> {formatDateTimeBR(delivery?.confirmedAt || batch?.completedAt || pickup.pickedUpAt || pickup.acceptedAt)}
-                      </div>
-                    </div>
+                    {/* Detalhes do Histórico Sob Demanda (M53) */}
+                    {isExpanded && (
+                      <div
+                        id={`history-details-${pickup.id}`}
+                        className="border-t border-stone-100 p-5 sm:p-6 bg-stone-50/40 space-y-4 animate-in fade-in slide-in-from-top-1 duration-150"
+                      >
+                        {/* Grid Superior: Identificação da doação, Doador, Entidade e Transportador */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 p-4 bg-white rounded-2xl border border-stone-200/80 text-xs text-stone-600 shadow-2xs">
+                          <div>
+                            <span className="text-[10px] uppercase font-bold text-stone-400 block">
+                              Doação & Quantidade
+                            </span>
+                            <strong className="text-stone-900 text-sm block mt-0.5">
+                              {pickup.foodName}
+                            </strong>
+                            <span className="inline-block mt-1 text-xs font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                              {pickup.batchQuantity} {pickup.batchUnit}
+                            </span>
+                            <span className="text-[11px] text-stone-400 block mt-1 font-mono">
+                              Lote: {pickup.batchId.slice(0, 8)}...
+                            </span>
+                          </div>
 
-                    {/* Linha do tempo visual da doação concluída */}
-                    {batch && (
-                      <div className="pt-2 border-t border-stone-100">
-                        <OperationTimeline
-                          batch={batch}
-                          pickup={pickup}
-                          occurrences={batchOccs}
-                        />
+                          <div>
+                            <span className="text-[10px] uppercase font-bold text-stone-400 block">
+                              Doador (Origem)
+                            </span>
+                            <strong className="text-stone-900 text-sm block mt-0.5">
+                              {pickup.donorName}
+                            </strong>
+                            <span className="text-[11px] text-stone-500 block truncate">
+                              {pickup.pickupAddress}
+                            </span>
+                          </div>
+
+                          <div>
+                            <span className="text-[10px] uppercase font-bold text-stone-400 block">
+                              Entidade Receptora (Destino)
+                            </span>
+                            <strong className="text-stone-900 text-sm block mt-0.5">
+                              {pickup.receiverName}
+                            </strong>
+                            <span className="text-[11px] text-stone-500 block">
+                              Entidade Receptora Homologada
+                            </span>
+                          </div>
+
+                          <div>
+                            <span className="text-[10px] uppercase font-bold text-stone-400 block">
+                              Transportador Responsável
+                            </span>
+                            <strong className="text-stone-900 text-sm block mt-0.5">
+                              {pickup.transporterName || userAccount?.name || 'Transportador'}
+                            </strong>
+                            <span className="inline-flex items-center gap-1 mt-1 text-[11px] font-bold text-emerald-700">
+                              <CheckCircle2 className="w-3.5 h-3.5" /> Entrega Concluída
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Bloco de Rastreabilidade / Datas Operacionais */}
+                        <div className="p-4 bg-white rounded-2xl border border-stone-200/80 text-xs text-stone-600 shadow-2xs space-y-2">
+                          <span className="text-[10px] uppercase font-bold text-stone-400 block mb-1">
+                            Rastreabilidade do Ciclo de Vida (Auditoria M15 / M31 / M37)
+                          </span>
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div className="p-2.5 bg-stone-50 rounded-xl border border-stone-200/60">
+                              <span className="text-[10px] text-stone-400 font-bold uppercase block">1. Aceite da Coleta</span>
+                              <strong className="text-stone-800 text-xs">{formatDateTimeBR(pickup.acceptedAt)}</strong>
+                            </div>
+
+                            <div className="p-2.5 bg-stone-50 rounded-xl border border-stone-200/60">
+                              <span className="text-[10px] text-stone-400 font-bold uppercase block">2. Retirada no Doador</span>
+                              <strong className="text-stone-800 text-xs">{formatDateTimeBR(pickup.pickedUpAt)}</strong>
+                            </div>
+
+                            <div className="p-2.5 bg-emerald-50 rounded-xl border border-emerald-200/80">
+                              <span className="text-[10px] text-emerald-700 font-bold uppercase block">3. Recebimento no Destino</span>
+                              <strong className="text-emerald-900 text-xs">
+                                {formatDateTimeBR(delivery?.confirmedAt || batch?.completedAt || pickup.pickedUpAt || pickup.acceptedAt)}
+                              </strong>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Linha do tempo visual da doação concluída */}
+                        {batch && (
+                          <div className="pt-2">
+                            <OperationTimeline
+                              batch={batch}
+                              pickup={pickup}
+                              occurrences={batchOccs}
+                            />
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

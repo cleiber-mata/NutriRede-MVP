@@ -22,6 +22,9 @@ interface NavbarProps {
   onOpenRequestProfile: () => void;
   currentView: 'home' | 'dashboard' | 'admin' | 'academic';
   setCurrentView: (view: 'home' | 'dashboard' | 'admin' | 'academic') => void;
+  hasSidebar?: boolean;
+  isMobileDrawerOpen?: boolean;
+  onToggleMobileDrawer?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -31,6 +34,9 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenRequestProfile,
   currentView,
   setCurrentView,
+  hasSidebar = false,
+  isMobileDrawerOpen = false,
+  onToggleMobileDrawer,
 }) => {
   const { currentUser, userAccount, userProfiles, activeProfile, switchActiveProfileType, isAdmin, logout } = useAuth();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
@@ -51,80 +57,113 @@ export const Navbar: React.FC<NavbarProps> = ({
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-emerald-100 shadow-xs">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          {/* Logo & Slogan */}
-          <div
-            className="flex items-center gap-3 cursor-pointer group"
-            onClick={() => setCurrentView('home')}
-          >
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-700 via-emerald-600 to-teal-500 flex items-center justify-center text-white shadow-sm shadow-emerald-700/20 group-hover:scale-105 transition-transform">
-              <HeartHandshake className="w-6 h-6" />
+          {/* Lado Esquerdo: Botão Mobile (Gaveta) + Logo / Indicador */}
+          <div className="flex items-center gap-3 min-w-0">
+            {hasSidebar && (
+              <button
+                type="button"
+                onClick={onToggleMobileDrawer}
+                title={isMobileDrawerOpen ? "Fechar menu" : "Abrir menu"}
+                aria-label={isMobileDrawerOpen ? "Fechar menu de navegação lateral" : "Abrir menu de navegação lateral"}
+                aria-expanded={isMobileDrawerOpen}
+                className="md:hidden p-2 rounded-xl text-stone-600 hover:text-stone-900 hover:bg-stone-100 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 shrink-0"
+              >
+                {isMobileDrawerOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              </button>
+            )}
+
+            {/* Logo & Slogan (Visível sempre em mobile, e no desktop se não houver sidebar) */}
+            <div
+              className={`flex items-center gap-2.5 cursor-pointer group shrink-0 ${hasSidebar ? 'md:hidden' : ''}`}
+              onClick={() => setCurrentView('home')}
+            >
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-700 via-emerald-600 to-teal-500 flex items-center justify-center text-white shadow-xs group-hover:scale-105 transition-transform">
+                <HeartHandshake className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xl font-bold tracking-tight text-emerald-950 font-serif">
+                    Nutri<span className="text-emerald-600">Rede</span>
+                  </span>
+                </div>
+                {!hasSidebar && (
+                  <p className="text-xs text-stone-500 hidden sm:block">
+                    Conectando alimentos a quem precisa
+                  </p>
+                )}
+              </div>
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xl font-bold tracking-tight text-emerald-950 font-serif">
-                  Nutri<span className="text-emerald-600">Rede</span>
+
+            {/* Indicador de Seção no Desktop quando a Sidebar está ativa */}
+            {hasSidebar && (
+              <div className="hidden md:flex items-center gap-2 text-xs font-semibold text-stone-700 bg-stone-50 px-3 py-1.5 rounded-xl border border-stone-200/80 shadow-2xs">
+                <span className="w-2 h-2 rounded-full bg-emerald-600 shrink-0" />
+                <span className="text-stone-800">
+                  {currentView === 'home' && 'Início • Conectando Alimentos'}
+                  {currentView === 'dashboard' && 'Meu Painel • Operações e Perfis'}
+                  {currentView === 'academic' && 'Matriz de Requisitos & Testes (RF01–RF16)'}
+                  {currentView === 'admin' && 'Área de Homologação Administrativa'}
                 </span>
               </div>
-              <p className="text-xs text-stone-500 hidden sm:block">
-                Conectando alimentos a quem precisa
-              </p>
-            </div>
+            )}
           </div>
 
-          {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center gap-2">
-            <button
-              onClick={() => setCurrentView('home')}
-              className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
-                currentView === 'home'
-                  ? 'bg-emerald-50 text-emerald-800'
-                  : 'text-stone-600 hover:text-emerald-700 hover:bg-stone-50'
-              }`}
-            >
-              Início
-            </button>
-
-            {currentUser && (
+          {/* Desktop Navigation (Apenas no modo clássico sem Sidebar) */}
+          {!hasSidebar && (
+            <nav className="hidden md:flex items-center gap-2">
               <button
-                onClick={() => setCurrentView('dashboard')}
+                onClick={() => setCurrentView('home')}
                 className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
-                  currentView === 'dashboard'
+                  currentView === 'home'
                     ? 'bg-emerald-50 text-emerald-800'
                     : 'text-stone-600 hover:text-emerald-700 hover:bg-stone-50'
                 }`}
               >
-                Meu Painel
+                Início
               </button>
-            )}
 
-            <button
-              onClick={() => setCurrentView('academic')}
-              className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
-                currentView === 'academic'
-                  ? 'bg-emerald-50 text-emerald-800'
-                  : 'text-stone-600 hover:text-emerald-700 hover:bg-stone-50'
-              }`}
-            >
-              Requisitos & Testes
-            </button>
+              {currentUser && (
+                <button
+                  onClick={() => setCurrentView('dashboard')}
+                  className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                    currentView === 'dashboard'
+                      ? 'bg-emerald-50 text-emerald-800'
+                      : 'text-stone-600 hover:text-emerald-700 hover:bg-stone-50'
+                  }`}
+                >
+                  Meu Painel
+                </button>
+              )}
 
-            {isAdmin && (
               <button
-                onClick={() => {
-                  setCurrentView('admin');
-                  onOpenAdmin();
-                }}
-                className={`px-3 py-1.5 text-sm font-semibold rounded-lg flex items-center gap-1.5 transition-colors ${
-                  currentView === 'admin'
-                    ? 'bg-amber-100 text-amber-900 border border-amber-300'
-                    : 'text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200'
+                onClick={() => setCurrentView('academic')}
+                className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                  currentView === 'academic'
+                    ? 'bg-emerald-50 text-emerald-800'
+                    : 'text-stone-600 hover:text-emerald-700 hover:bg-stone-50'
                 }`}
               >
-                <Shield className="w-4 h-4 text-amber-600" />
-                Área Administrativa
+                Requisitos & Testes
               </button>
-            )}
-          </nav>
+
+              {isAdmin && (
+                <button
+                  onClick={() => {
+                    setCurrentView('admin');
+                    onOpenAdmin();
+                  }}
+                  className={`px-3 py-1.5 text-sm font-semibold rounded-lg flex items-center gap-1.5 transition-colors ${
+                    currentView === 'admin'
+                      ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                      : 'text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200'
+                  }`}
+                >
+                  <Shield className="w-4 h-4 text-amber-600" />
+                  Área Administrativa
+                </button>
+              )}
+            </nav>
+          )}
 
           {/* Right Action Area */}
           <div className="flex items-center gap-3">
@@ -264,18 +303,22 @@ export const Navbar: React.FC<NavbarProps> = ({
               </div>
             )}
 
-            {/* Mobile menu button */}
-            <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden p-2 rounded-lg text-stone-500 hover:text-stone-900 hover:bg-stone-100"
-            >
-              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-            </button>
+            {/* Mobile menu button (Apenas no modo clássico sem Sidebar) */}
+            {!hasSidebar && (
+              <button
+                type="button"
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                aria-label="Menu de navegação"
+                className="md:hidden p-2 rounded-lg text-stone-500 hover:text-stone-900 hover:bg-stone-100"
+              >
+                {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Mobile Navigation Dropdown */}
-        {mobileMenuOpen && (
+        {/* Mobile Navigation Dropdown (Apenas no modo clássico sem Sidebar) */}
+        {!hasSidebar && mobileMenuOpen && (
           <div className="md:hidden py-3 border-t border-stone-100 space-y-1">
             <button
               onClick={() => {
