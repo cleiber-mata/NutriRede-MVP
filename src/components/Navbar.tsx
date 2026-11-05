@@ -108,6 +108,33 @@ export const Navbar: React.FC<NavbarProps> = ({
             )}
           </div>
 
+          {/* Links rápidos das seções da Landing Page quando na Home */}
+          {currentView === 'home' && (
+            <nav className="hidden lg:flex items-center gap-7 text-xs font-semibold tracking-wide text-stone-600">
+              <button
+                type="button"
+                onClick={() => document.getElementById('como-funciona')?.scrollIntoView({ behavior: 'smooth' })}
+                className="hover:text-emerald-700 transition-colors cursor-pointer"
+              >
+                Como Funciona
+              </button>
+              <button
+                type="button"
+                onClick={() => document.getElementById('participe')?.scrollIntoView({ behavior: 'smooth' })}
+                className="hover:text-emerald-700 transition-colors cursor-pointer"
+              >
+                Participe
+              </button>
+              <button
+                type="button"
+                onClick={() => document.getElementById('impacto')?.scrollIntoView({ behavior: 'smooth' })}
+                className="hover:text-emerald-700 transition-colors cursor-pointer"
+              >
+                Impacto
+              </button>
+            </nav>
+          )}
+
           {/* Desktop Navigation (Apenas no modo clássico sem Sidebar) */}
           {!hasSidebar && (
             <nav className="hidden md:flex items-center gap-2">

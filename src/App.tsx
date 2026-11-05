@@ -151,6 +151,7 @@ function MainApp() {
                   }}
                   onViewDashboard={() => setCurrentView('dashboard')}
                   onViewAcademic={() => setCurrentView('academic')}
+                  onOpenRequestProfile={() => setIsRequestProfileOpen(true)}
                 />
               )}
 
