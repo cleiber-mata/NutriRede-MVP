@@ -38,13 +38,19 @@ interface HomeHeroProps {
   onOpenRequestProfile?: () => void;
 }
 
-// Imagens geradas com alta fidelidade para a identidade visual do NutriRede
+import heroImage from '../assets/images/hero_community_food_delivery_1793887382029.jpg';
+import cardDonorImage from '../assets/images/card_donor_produce_1793887382034.jpg';
+import cardReceiverImage from '../assets/images/card_receiver_meal_1793887383715.jpg';
+import cardTransporterImage from '../assets/images/card_transporter_van_1793887383438.jpg';
+import impactChildImage from '../assets/images/impact_smiling_child_meal_1793887384712.jpg';
+
+// Imagens processadas estaticamente pelo Vite para produção
 const IMAGES = {
-  hero: '/src/assets/images/hero_community_food_delivery_1793887382029.jpg',
-  cardDonor: '/src/assets/images/card_donor_produce_1793887382034.jpg',
-  cardReceiver: '/src/assets/images/card_receiver_meal_1793887383715.jpg',
-  cardTransporter: '/src/assets/images/card_transporter_van_1793887383438.jpg',
-  impactChild: '/src/assets/images/impact_smiling_child_meal_1793887384712.jpg',
+  hero: heroImage,
+  cardDonor: cardDonorImage,
+  cardReceiver: cardReceiverImage,
+  cardTransporter: cardTransporterImage,
+  impactChild: impactChildImage,
 };
 
 // Ícone decorativo dos raios solares/esperança da identidade visual do NutriRede
@@ -244,11 +250,11 @@ export const HomeHero: React.FC<HomeHeroProps> = ({
               <div className="pt-2 flex items-center gap-4 text-xs text-stone-500">
                 <span className="inline-flex items-center gap-1.5">
                   <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                  Homologação sanitária
+                  Homologação administrativa
                 </span>
                 <span className="inline-flex items-center gap-1.5">
                   <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                  Rastreabilidade ponta a ponta
+                  Acompanhamento das etapas
                 </span>
                 <span className="inline-flex items-center gap-1.5">
                   <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
@@ -292,7 +298,7 @@ export const HomeHero: React.FC<HomeHeroProps> = ({
                       </div>
                       <div>
                         <p className="text-xs font-bold text-stone-900 leading-tight">Solidariedade com Responsabilidade</p>
-                        <p className="text-[11px] text-stone-500">Alimentos inspecionados e entrega protocolada</p>
+                        <p className="text-[11px] text-stone-500">Aptidão declarada pelo doador e entrega protocolada</p>
                       </div>
                     </div>
                     <span className="hidden sm:inline-flex text-[11px] font-semibold text-emerald-800 bg-emerald-100/70 px-2.5 py-1 rounded-full">
@@ -332,7 +338,7 @@ export const HomeHero: React.FC<HomeHeroProps> = ({
               Como funciona?
             </h2>
             <p className="mt-2 text-sm sm:text-base text-stone-600">
-              Um caminho simples para conectar alimentos a quem precisa com total rastreabilidade.
+              Um caminho simples para conectar alimentos a quem precisa com acompanhamento das etapas.
             </p>
           </div>
 
@@ -395,7 +401,7 @@ export const HomeHero: React.FC<HomeHeroProps> = ({
                   Administrador homologa
                 </h3>
                 <p className="text-xs text-stone-600 leading-relaxed">
-                  Supervisão independente que valida critérios sanitários e autoriza a liberação da doação.
+                  Supervisão independente que analisa a solicitação de reserva e autoriza a liberação da doação.
                 </p>
               </div>
               <div className="mt-4 pt-3 border-t border-stone-100 flex items-center justify-between text-[11px] text-amber-700 font-semibold">
@@ -712,7 +718,7 @@ export const HomeHero: React.FC<HomeHeroProps> = ({
                     Menos desperdício
                   </h3>
                   <p className="text-xs text-stone-500 leading-relaxed">
-                    Aproveitamento de excedentes do varejo e da agricultura em perfeito estado sanitário.
+                    Aproveitamento de excedentes do varejo e da agricultura com alimentos declarados próprios para consumo.
                   </p>
                 </div>
 
